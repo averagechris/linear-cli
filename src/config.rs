@@ -56,19 +56,11 @@ fn runtime_overrides() -> &'static RuntimeOverrides {
 }
 
 fn profile_override() -> Option<String> {
-    runtime_overrides().profile.clone().or_else(|| {
-        std::env::var("LINEAR_CLI_PROFILE")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-    })
+    runtime_overrides().profile.clone()
 }
 
 fn api_key_override() -> Option<String> {
-    runtime_overrides().api_key.clone().or_else(|| {
-        std::env::var("LINEAR_API_KEY")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-    })
+    runtime_overrides().api_key.clone()
 }
 
 pub fn api_key_override_present() -> bool {
@@ -219,7 +211,7 @@ pub fn get_api_key() -> Result<String> {
     let config = load_config()?;
     let profile = profile_override();
     let current = profile.or(config.current.clone()).context(
-        "No workspace selected. Run: linear config workspace-add <name> or set LINEAR_CLI_PROFILE",
+        "No workspace selected. Run: linear config workspace-add <name> or use --profile for this invocation",
     )?;
     config.workspaces.get(&current).context(format!(
         "Workspace '{}' not found. Run: linear config workspace-add <name>",
@@ -282,12 +274,6 @@ pub fn config_get(key: &str) -> Result<()> {
         "api-key" | "api_key" => {
             if runtime_overrides().api_key.is_some() {
                 println!("provided via --api-key for this invocation");
-            } else if std::env::var("LINEAR_API_KEY")
-                .ok()
-                .filter(|value| !value.trim().is_empty())
-                .is_some()
-            {
-                println!("provided via LINEAR_API_KEY");
             } else {
                 let profile = current_profile()?;
                 if crate::keyring::get_key(&profile)?.is_some() {

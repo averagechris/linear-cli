@@ -11,6 +11,7 @@ mod oauth;
 mod output;
 mod pagination;
 mod priority;
+mod process;
 mod retry;
 mod text;
 #[allow(dead_code)]
@@ -170,11 +171,11 @@ struct Cli {
     order: SortOrder,
 
     /// Override API key for this invocation
-    #[arg(long, global = true, env = "LINEAR_API_KEY")]
+    #[arg(long, global = true)]
     api_key: Option<String>,
 
     /// Override workspace profile for this invocation
-    #[arg(long, global = true, env = "LINEAR_CLI_PROFILE")]
+    #[arg(long, global = true)]
     profile: Option<String>,
 
     /// Output using a template (e.g. '{{identifier}} {{title}}')
@@ -278,7 +279,7 @@ enum Commands {
     Common,
     /// Show agent-focused capabilities and examples
     Agent,
-    /// Check whether a newer released version of linear-cli is available
+    /// Check SourceHut release tags for a newer version of linear-cli
     #[command(after_help = r#"EXAMPLES:
     linear-cli update
     linear-cli update --check"#)]
@@ -304,6 +305,7 @@ enum Commands {
     linear auth login                        # Store API key
     linear auth status                       # Show auth status
     linear auth logout                       # Remove stored credentials
+    linear auth logout --remove-profile      # Remove creds and delete the profile
     linear auth oauth                        # Authenticate via OAuth 2.0
     linear auth oauth --admin                # Explicitly request admin scope
     linear auth oauth --client-id MY_ID      # Use custom OAuth app
@@ -962,10 +964,6 @@ async fn async_main() -> Result<i32> {
         return Ok(0);
     }
 
-    if should_check_for_updates(&cli) {
-        update::maybe_warn_for_update().await?;
-    }
-
     let exit_code = {
         // Keep the pager guard scoped so cleanup runs before main exits.
         let _pager_guard = if should_use_pager(cli.no_pager, &cli.output, cli.quiet) {
@@ -1015,32 +1013,6 @@ async fn async_main() -> Result<i32> {
     };
 
     Ok(exit_code)
-}
-
-fn should_check_for_updates(cli: &Cli) -> bool {
-    if cli.quiet || cli.schema {
-        return false;
-    }
-
-    if matches!(cli.output, OutputFormat::Json | OutputFormat::Ndjson) {
-        return false;
-    }
-
-    if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
-        return false;
-    }
-
-    !matches!(
-        &cli.command,
-        Commands::Update { .. }
-            | Commands::Common
-            | Commands::Agent
-            | Commands::Completions { .. }
-            | Commands::Complete { .. }
-            | Commands::Config {
-                action: ConfigCommands::Completions { .. },
-            }
-    )
 }
 
 /// Categorize error for exit codes: 1=general error, 2=not found, 3=auth error
@@ -1261,12 +1233,6 @@ fn should_use_pager(no_pager: bool, format: &OutputFormat, quiet: bool) -> bool 
 /// Set up pager by spawning pager process and redirecting stdout.
 /// Returns a guard that waits for the pager to finish when dropped.
 fn setup_pager() -> Option<PagerGuard> {
-    // Set LESS options if not already set (like git does)
-    // -R: raw control chars (colors), -X: don't clear screen, -F: quit if one screen
-    if std::env::var("LESS").is_err() {
-        std::env::set_var("LESS", "-R -X -F");
-    }
-
     let pager_cmd = std::env::var("PAGER").unwrap_or_else(|_| "less".to_string());
     if pager_cmd == "cat" || pager_cmd.is_empty() {
         return None;
@@ -1297,11 +1263,12 @@ fn setup_pager() -> Option<PagerGuard> {
     }
 
     // Try to spawn pager with stdin piped
-    let mut child = match std::process::Command::new(&program)
-        .args(&args)
-        .stdin(std::process::Stdio::piped())
-        .spawn()
-    {
+    let mut command = crate::process::scrubbed_command(&program);
+    command.args(&args).stdin(std::process::Stdio::piped());
+    if std::env::var_os("LESS").is_none() {
+        command.env("LESS", "-R -X -F");
+    }
+    let mut child = match command.spawn() {
         Ok(child) => child,
         Err(_) => return None, // Pager not available, continue without it
     };
@@ -1552,7 +1519,7 @@ async fn handle_context(
     retry: u32,
 ) -> Result<()> {
     // Get current git branch
-    let branch_output = std::process::Command::new("git")
+    let branch_output = crate::process::scrubbed_command("git")
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
         .output();
 
@@ -1649,7 +1616,7 @@ async fn handle_done(
     retry: u32,
 ) -> Result<()> {
     // Get current git branch
-    let branch_output = std::process::Command::new("git")
+    let branch_output = crate::process::scrubbed_command("git")
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
         .output();
 

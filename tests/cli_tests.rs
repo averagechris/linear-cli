@@ -702,6 +702,13 @@ fn test_auth_status_help() {
 }
 
 #[test]
+fn test_auth_logout_help_mentions_remove_profile() {
+    let (code, stdout, _stderr) = run_cli(&["auth", "logout", "--help"]);
+    assert_eq!(code, 0);
+    assert!(stdout.contains("--remove-profile"));
+}
+
+#[test]
 fn test_auth_help_examples_include_oauth() {
     let (code, stdout, _stderr) = run_cli(&["auth", "--help"]);
     assert_eq!(code, 0);

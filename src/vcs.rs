@@ -1,8 +1,8 @@
 use anyhow::Result;
-use std::process::Command;
-
 pub fn run_git_command(args: &[&str]) -> Result<String> {
-    let output = Command::new("git").args(args).output()?;
+    let output = crate::process::scrubbed_command("git")
+        .args(args)
+        .output()?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -23,7 +23,7 @@ pub fn validate_branch_name(branch: &str) -> Result<()> {
         anyhow::bail!("Branch name contains invalid ref syntax");
     }
 
-    let output = Command::new("git")
+    let output = crate::process::scrubbed_command("git")
         .args(["check-ref-format", "--branch", branch])
         .output()?;
     if output.status.success() {
@@ -40,7 +40,7 @@ pub fn git_branch_exists(branch: &str) -> bool {
     }
 
     let ref_name = format!("refs/heads/{}", branch);
-    Command::new("git")
+    crate::process::scrubbed_command("git")
         .args(["show-ref", "--verify", "--quiet", &ref_name])
         .status()
         .map(|status| status.success())

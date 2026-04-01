@@ -9,8 +9,11 @@ A fast, comprehensive command-line interface for [Linear](https://linear.app) bu
 ## Installation
 
 ```bash
-# With Nix
+# With Nix (minimal package)
 nix run .#linear-cli -- --help
+
+# With Nix and bundled runtime tools (git/jj/gh/less)
+nix run .#linear-cli-bundled -- --help
 
 # From crates.io (uses OS keyring for credentials)
 cargo install linear-cli
@@ -22,10 +25,15 @@ cd linear-cli && cargo build --release
 
 Credentials are stored in the OS keyring (Keychain, Credential Manager, or Secret Service). Plaintext credential storage is not supported.
 
+The flake exports two CLI packages:
+
+- `.#linear-cli` — minimal package; external tools like `git`, `gh`, `jj`, and `less` come from your environment
+- `.#linear-cli-bundled` — wrapped package with those runtime tools on `PATH`
+
 ## Updating
 
 ```bash
-# Check whether a newer upstream release exists
+# Check SourceHut release tags for newer versions
 linear-cli update
 
 # Check without changing any local installation
@@ -38,7 +46,13 @@ cargo install --locked linear-cli
 nix flake update
 ```
 
-`linear-cli` does not self-update in place. Review and update it via your package manager, flake inputs, or a source rebuild.
+`linear-cli` does not self-update in place. `linear-cli update` compares the current binary against `vX.Y.Z` tags on the canonical SourceHut remote, then leaves the update itself to your package manager, flake inputs, or a source rebuild.
+
+To publish a new release tag for this fork after updating `Cargo.toml`'s version:
+
+```bash
+nix run .#release-tag
+```
 
 ## Quick Start
 
@@ -415,8 +429,8 @@ linear-cli auth login
 # Prompt and store API key via config command
 linear-cli config set-key
 
-# Or use environment variable (highest priority)
-export LINEAR_API_KEY=lin_api_xxx
+# Per-invocation override without storing a new key
+linear-cli --api-key lin_api_xxx i list
 ```
 
 ### OAuth 2.0
@@ -435,7 +449,7 @@ linear-cli auth logout         # Remove stored credentials
 
 Add `--admin` only for commands that require elevated access such as webhook management.
 
-**Auth priority:** `--api-key` flag / `LINEAR_API_KEY` env var > OS keyring > OAuth tokens metadata.
+**Auth priority:** `--api-key` flag for the current invocation > OS keyring > OAuth tokens metadata.
 
 ## Configuration
 
@@ -455,7 +469,6 @@ linear-cli config workspace-remove work          # Remove profile
 
 # Per-invocation profile override
 linear-cli --profile work i list
-export LINEAR_CLI_PROFILE=work
 ```
 
 ### Setup & Diagnostics
@@ -634,6 +647,12 @@ For OpenCode project-local skills, this repo also exposes `.opencode/skills/`. R
 ## Contributing
 
 Contributions welcome! Please open an issue or submit a pull request.
+
+Validation in this fork is split intentionally:
+
+- `nix flake check` covers build + formatting
+- `nix run .#ci-test` runs the Rust test suite
+- `nix run .#ci-clippy` runs clippy with warnings denied
 
 ## License
 

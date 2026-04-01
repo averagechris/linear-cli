@@ -24,6 +24,9 @@ pub enum AuthCommands {
         /// Skip confirmation prompt
         #[arg(long)]
         force: bool,
+        /// Remove the workspace profile after clearing credentials
+        #[arg(long)]
+        remove_profile: bool,
     },
     /// Show current auth status
     Status {
@@ -57,7 +60,10 @@ pub enum AuthCommands {
 pub async fn handle(cmd: AuthCommands, output: &OutputOptions) -> Result<()> {
     match cmd {
         AuthCommands::Login { key, validate } => login(key, validate, output).await,
-        AuthCommands::Logout { force } => logout(force, output).await,
+        AuthCommands::Logout {
+            force,
+            remove_profile,
+        } => logout(force, remove_profile, output).await,
         AuthCommands::Status { validate } => status(validate, output).await,
         AuthCommands::Oauth {
             client_id,
@@ -98,7 +104,7 @@ async fn login(key: Option<String>, validate: bool, output: &OutputOptions) -> R
     Ok(())
 }
 
-async fn logout(force: bool, output: &OutputOptions) -> Result<()> {
+async fn logout(force: bool, remove_profile: bool, output: &OutputOptions) -> Result<()> {
     let profile = config::current_profile()?;
 
     if !force && !crate::is_yes() {
@@ -118,19 +124,30 @@ async fn logout(force: bool, output: &OutputOptions) -> Result<()> {
     let _ = crate::keyring::delete_oauth_tokens(&profile);
 
     config::clear_oauth_config(&profile)?;
+    if remove_profile {
+        config::workspace_remove(&profile)?;
+    }
 
     if output.is_json() || output.has_template() {
         print_json_owned(
             json!({
                 "profile": profile,
-                "cleared": true
+                "cleared": true,
+                "profile_removed": remove_profile,
             }),
             output,
         )?;
         return Ok(());
     }
 
-    println!("Removed stored credentials for profile '{}'", profile);
+    if remove_profile {
+        println!(
+            "Removed stored credentials and deleted profile '{}'",
+            profile
+        );
+    } else {
+        println!("Removed stored credentials for profile '{}'", profile);
+    }
     Ok(())
 }
 

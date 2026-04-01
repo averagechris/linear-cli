@@ -19,6 +19,21 @@ use std::sync::OnceLock;
 const LINEAR_API_URL: &str = "https://api.linear.app/graphql";
 const LINEAR_UPLOADS_HOST: &str = "uploads.linear.app";
 
+fn sanitize_remote_error_body(body: &str) -> Option<String> {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let first_line = trimmed.lines().next().unwrap_or_default().trim();
+    let truncated: String = first_line.chars().take(160).collect();
+    Some(if first_line.chars().count() > 160 {
+        format!("{}…", truncated)
+    } else {
+        truncated
+    })
+}
+
 /// Configuration for generic ID resolution
 struct ResolverConfig<'a> {
     cache_type: CacheType,
@@ -680,14 +695,9 @@ impl LinearClient {
 
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-            let details = if let Ok(json) = serde_json::from_str::<Value>(&body) {
-                json
-            } else {
-                json!({ "body": body })
-            };
             let mut err = http_error(status, &headers, "resource");
-            if !body.is_empty() {
-                err = err.with_details(details);
+            if let Some(summary) = sanitize_remote_error_body(&body) {
+                err = err.with_details(json!({ "summary": summary }));
             }
             return Err(err.into());
         }

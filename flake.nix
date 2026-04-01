@@ -89,6 +89,61 @@
         ciTestScript = ''
           cargo test --locked
         '';
+        releaseTagScript = ''
+                    if [[ $# -eq 1 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
+                      printf 'usage: %s\n' "$0"
+                      printf 'create and push annotated SourceHut release tag from Cargo.toml version\n'
+                      exit 0
+                    fi
+
+                    if [[ $# -ne 0 ]]; then
+                      printf 'usage: %s\n' "$0" >&2
+                      exit 1
+                    fi
+
+                    repo_root="$(git rev-parse --show-toplevel)"
+                    version="$(${pkgs.python3}/bin/python3 - <<'PY' "$repo_root/Cargo.toml"
+          import pathlib
+          import sys
+          import tomllib
+
+          path = pathlib.Path(sys.argv[1])
+          with path.open('rb') as f:
+              data = tomllib.load(f)
+
+          version = data.get('package', {}).get('version')
+          if not isinstance(version, str) or not version:
+              raise SystemExit('Cargo.toml is missing package.version')
+
+          print(version)
+          PY
+                    )"
+
+                    if [[ "$version" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                      tag="v''${version#v}"
+                    else
+                      printf 'Cargo.toml version must be semver in the form X.Y.Z\n' >&2
+                      exit 1
+                    fi
+
+                    if ! git diff --quiet || ! git diff --cached --quiet; then
+                      printf 'working tree must be clean before tagging %s\n' "$tag" >&2
+                      exit 1
+                    fi
+
+                    if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+                      printf 'local tag already exists: %s\n' "$tag" >&2
+                      exit 1
+                    fi
+
+                    if [[ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ]]; then
+                      printf 'remote tag already exists on origin: %s\n' "$tag" >&2
+                      exit 1
+                    fi
+
+                    git tag -a "$tag" -m "Release $tag"
+                    git push origin "refs/tags/$tag"
+        '';
         mkRepoScript = {
           name,
           runtimeInputs ? [],
@@ -113,6 +168,23 @@
               mainProgram = package.name;
             };
           });
+        linear-cli-runtime-tools = with pkgs;
+          [
+            git
+            gh
+            jujutsu
+            less
+          ]
+          ++ lib.optionals stdenv.isLinux [xdg-utils];
+        linear-cli-bundled = pkgs.symlinkJoin {
+          name = "${package.name}-bundled-${package.version}";
+          paths = [linear-cli];
+          nativeBuildInputs = [pkgs.makeWrapper];
+          postBuild = ''
+            wrapProgram "$out/bin/${package.name}" \
+              --prefix PATH : ${lib.makeBinPath linear-cli-runtime-tools}
+          '';
+        };
         fetch-upstream = mkRepoScript {
           name = "fetch-upstream";
           text = fetchUpstreamScript;
@@ -153,6 +225,14 @@
             rustc
           ];
         };
+        release-tag = mkRepoScript {
+          name = "release-tag";
+          text = releaseTagScript;
+          runtimeInputs = with pkgs; [
+            git
+            python3
+          ];
+        };
         repo-scripts = pkgs.symlinkJoin {
           name = "${package.name}-scripts";
           paths = [
@@ -161,6 +241,7 @@
             ci-test
             fetch-upstream
             link-opencode-skills
+            release-tag
           ];
         };
         test-check = pkgs.rustPlatform.buildRustPackage (commonRustArgs
@@ -188,13 +269,18 @@
         packages.ci-clippy = ci-clippy;
         packages.ci-fmt = ci-fmt;
         packages.ci-test = ci-test;
+        packages.linear-cli-bundled = linear-cli-bundled;
         packages.linear-cli = linear-cli;
         packages.fetch-upstream = fetch-upstream;
         packages.link-opencode-skills = link-opencode-skills;
+        packages.release-tag = release-tag;
         packages.scripts = repo-scripts;
 
         apps.default = flake-utils.lib.mkApp {
           drv = linear-cli;
+        };
+        apps.linear-cli-bundled = flake-utils.lib.mkApp {
+          drv = linear-cli-bundled;
         };
         apps.linear-cli = flake-utils.lib.mkApp {
           drv = linear-cli;
@@ -213,6 +299,9 @@
         };
         apps.link-opencode-skills = flake-utils.lib.mkApp {
           drv = link-opencode-skills;
+        };
+        apps.release-tag = flake-utils.lib.mkApp {
+          drv = release-tag;
         };
 
         checks = {

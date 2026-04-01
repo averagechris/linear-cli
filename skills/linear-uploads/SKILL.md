@@ -50,7 +50,7 @@ linear-cli up fetch "https://uploads.linear.app/..." -f /tmp/screenshot.png
 
 ## Tips
 
-- Requires valid LINEAR_API_KEY
+- Requires valid authentication via keyring or `--api-key`
 - Use `-f` / `--file` to specify output filename
 - Without `-f`, outputs raw bytes to stdout
 - URLs must be from `uploads.linear.app`

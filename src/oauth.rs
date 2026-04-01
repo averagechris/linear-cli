@@ -9,6 +9,21 @@ const LINEAR_AUTHORIZE_URL: &str = "https://linear.app/oauth/authorize";
 const LINEAR_TOKEN_URL: &str = "https://api.linear.app/oauth/token";
 const LINEAR_REVOKE_URL: &str = "https://api.linear.app/oauth/revoke";
 
+fn sanitize_remote_error_body(body: &str) -> Option<String> {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let first_line = trimmed.lines().next().unwrap_or_default().trim();
+    let truncated: String = first_line.chars().take(160).collect();
+    Some(if first_line.chars().count() > 160 {
+        format!("{}…", truncated)
+    } else {
+        truncated
+    })
+}
+
 /// Default client_id for linear-cli OAuth app (registered with Linear)
 pub const DEFAULT_CLIENT_ID: &str = "ce79a8dae43a317b06fbbeb297567bf9";
 
@@ -214,7 +229,10 @@ pub async fn exchange_code(
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        anyhow::bail!("Token exchange failed (HTTP {}): {}", status, body);
+        if let Some(summary) = sanitize_remote_error_body(&body) {
+            anyhow::bail!("Token exchange failed (HTTP {}): {}", status, summary);
+        }
+        anyhow::bail!("Token exchange failed (HTTP {})", status);
     }
 
     let token_response: serde_json::Value = response
@@ -268,7 +286,10 @@ pub async fn refresh_tokens(client_id: &str, refresh_token: &str) -> Result<OAut
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        anyhow::bail!("Token refresh failed (HTTP {}): {}", status, body);
+        if let Some(summary) = sanitize_remote_error_body(&body) {
+            anyhow::bail!("Token refresh failed (HTTP {}): {}", status, summary);
+        }
+        anyhow::bail!("Token refresh failed (HTTP {})", status);
     }
 
     let token_response: serde_json::Value = response
@@ -318,7 +339,10 @@ pub async fn revoke_token(token: &str) -> Result<()> {
 
     if !response.status().is_success() {
         let body = response.text().await.unwrap_or_default();
-        anyhow::bail!("Token revocation failed: {}", body);
+        if let Some(summary) = sanitize_remote_error_body(&body) {
+            anyhow::bail!("Token revocation failed: {}", summary);
+        }
+        anyhow::bail!("Token revocation failed");
     }
 
     Ok(())

@@ -3,7 +3,6 @@ use clap::{Subcommand, ValueEnum};
 use colored::Colorize;
 use serde_json::json;
 use std::path::Path;
-use std::process::Command;
 
 use crate::api::LinearClient;
 use crate::display_options;
@@ -111,7 +110,10 @@ fn detect_vcs() -> Result<Vcs> {
     }
 
     // Try running jj status to see if we're in a jj repo
-    if let Ok(output) = Command::new("jj").args(["status"]).output() {
+    if let Ok(output) = crate::process::scrubbed_command("jj")
+        .args(["status"])
+        .output()
+    {
         if output.status.success() {
             return Ok(Vcs::Jj);
         }
@@ -123,7 +125,10 @@ fn detect_vcs() -> Result<Vcs> {
     }
 
     // Try running git status
-    if let Ok(output) = Command::new("git").args(["status"]).output() {
+    if let Ok(output) = crate::process::scrubbed_command("git")
+        .args(["status"])
+        .output()
+    {
         if output.status.success() {
             return Ok(Vcs::Git);
         }
@@ -226,7 +231,7 @@ fn extract_linear_issue(message: &str) -> Option<String> {
 }
 
 fn run_jj_command(args: &[&str]) -> Result<String> {
-    let output = Command::new("jj").args(args).output()?;
+    let output = crate::process::scrubbed_command("jj").args(args).output()?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -548,7 +553,7 @@ async fn show_commits(limit: usize, vcs: Vcs) -> Result<()> {
 }
 
 fn run_gh_command(args: &[&str]) -> Result<String> {
-    let output = Command::new("gh").args(args).output()?;
+    let output = crate::process::scrubbed_command("gh").args(args).output()?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())

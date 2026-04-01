@@ -33,6 +33,7 @@ chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
 rand = "0.8"
 csv = "1"
+gix = { version = "0.81", features = ["blocking-network-client", "blocking-http-transport-reqwest-native-tls"] }
 keyring = "3"
 sha2 = "0.10"
 open = "5"
@@ -40,6 +41,7 @@ url = "2"
 base64 = "0.22"
 hmac = "0.12"
 hex = "0.4"
+tempfile = "3"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
