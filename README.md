@@ -583,6 +583,8 @@ npx skills add Finesssee/linear-cli --skill linear-workflow
 
 38 skills covering issues, git, planning, organization, operations, tracking, and advanced API usage. Skills are 10-50x more token-efficient than MCP tools. See [docs/skills.md](docs/skills.md) for details.
 
+For OpenCode project-local skills, this repo also exposes `.opencode/skills/`. Run `nix run .#link-opencode-skills` to symlink the repo's published skills into that directory.
+
 ## Key Features
 
 - **50+ commands** across 30+ command groups with short aliases
