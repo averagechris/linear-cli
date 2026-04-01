@@ -6,7 +6,6 @@ mod dates;
 mod error;
 mod input;
 mod json_path;
-#[cfg(feature = "secure-storage")]
 mod keyring;
 mod oauth;
 mod output;
@@ -31,7 +30,7 @@ use error::CliError;
 use output::print_json_owned;
 use output::{parse_filters, JsonOutputOptions, OutputOptions, SortOrder};
 use pagination::PaginationOptions;
-use std::io::IsTerminal;
+use std::io::{self, IsTerminal, Write};
 use std::sync::OnceLock;
 
 /// Output format for command results
@@ -86,7 +85,7 @@ pub fn is_yes() -> bool {
 #[command(after_help = r#"QUICK START:
     1. Get your API key from https://linear.app/settings/api
     2. Configure the CLI:
-       linear config set-key YOUR_API_KEY
+       linear auth login
     3. List your issues:
        linear issues list
     4. Create an issue:
@@ -279,7 +278,7 @@ enum Commands {
     Common,
     /// Show agent-focused capabilities and examples
     Agent,
-    /// Check for and install the latest released version of linear-cli
+    /// Check whether a newer released version of linear-cli is available
     #[command(after_help = r#"EXAMPLES:
     linear-cli update
     linear-cli update --check"#)]
@@ -304,8 +303,9 @@ enum Commands {
     #[command(after_help = r#"EXAMPLES:
     linear auth login                        # Store API key
     linear auth status                       # Show auth status
-    linear auth logout                       # Remove current profile
+    linear auth logout                       # Remove stored credentials
     linear auth oauth                        # Authenticate via OAuth 2.0
+    linear auth oauth --admin                # Explicitly request admin scope
     linear auth oauth --client-id MY_ID      # Use custom OAuth app
     linear auth revoke                       # Revoke OAuth tokens"#)]
     Auth {
@@ -755,12 +755,11 @@ Walks you through:
     },
     /// Configure CLI settings - API keys and workspaces
     #[command(after_help = r#"EXAMPLES:
-    linear config set-key YOUR_API_KEY      # Set API key
-    linear config set api-key YOUR_API_KEY  # Set API key (alt)
-    linear config get api-key               # Get API key (masked)
+    linear config set-key                    # Prompt and store API key
     linear config set profile work          # Switch profile
+    linear config get api-key               # Show API key storage status
     linear config show                      # Show configuration
-    linear config workspace-add work KEY    # Add workspace
+    linear config workspace-add work        # Add workspace
     linear config workspace-switch work     # Switch workspace"#)]
     Config {
         #[command(subcommand)]
@@ -772,18 +771,15 @@ Walks you through:
 enum ConfigCommands {
     /// Set API key
     #[command(after_help = r#"EXAMPLE:
-    linear config set-key lin_api_xxxxxxxxxxxxx"#)]
+    linear config set-key"#)]
     SetKey {
         /// Your Linear API key
-        key: String,
+        key: Option<String>,
     },
     /// Get a configuration value
     Get {
         /// Config key to retrieve (api-key, profile)
         key: String,
-        /// Output raw value without masking
-        #[arg(long)]
-        raw: bool,
     },
     /// Set a configuration value
     Set {
@@ -808,12 +804,12 @@ enum ConfigCommands {
     /// Add a new workspace
     #[command(alias = "add")]
     #[command(after_help = r#"EXAMPLE:
-    linear config workspace-add personal lin_api_xxxxxxxxxxxxx"#)]
+    linear config workspace-add personal"#)]
     WorkspaceAdd {
         /// Workspace name
         name: String,
-        /// API key for this workspace
-        api_key: String,
+        /// API key for this workspace (if omitted, prompt interactively)
+        api_key: Option<String>,
     },
     /// List all workspaces
     #[command(alias = "list")]
@@ -907,12 +903,7 @@ async fn async_main() -> Result<i32> {
         width: cli.width,
         no_truncate: cli.no_truncate,
     });
-    if let Some(key) = cli.api_key.as_deref() {
-        std::env::set_var("LINEAR_API_KEY", key);
-    }
-    if let Some(profile) = cli.profile.as_deref() {
-        std::env::set_var("LINEAR_CLI_PROFILE", profile);
-    }
+    config::set_runtime_overrides(cli.api_key.clone(), cli.profile.clone());
     api::set_default_retry(cli.retry);
     let filters = parse_filters(&cli.filter)?;
     let pagination = PaginationOptions {
@@ -972,9 +963,7 @@ async fn async_main() -> Result<i32> {
     }
 
     if should_check_for_updates(&cli) {
-        if let Some(exit_code) = update::maybe_prompt_for_update(cli.yes).await? {
-            return Ok(exit_code);
-        }
+        update::maybe_warn_for_update().await?;
     }
 
     let exit_code = {
@@ -1194,13 +1183,19 @@ async fn run_command(
         Commands::Doctor { check_api, fix } => doctor::run(output, check_api, fix).await?,
         Commands::Config { action } => match action {
             ConfigCommands::SetKey { key } => {
+                let key = match key {
+                    Some(key) => key,
+                    None => dialoguer::Password::new()
+                        .with_prompt("Linear API key")
+                        .interact()?,
+                };
                 config::set_api_key(&key)?;
                 if !agent_opts.quiet {
-                    println!("API key saved successfully!");
+                    println!("API key saved successfully to keyring!");
                 }
             }
-            ConfigCommands::Get { key, raw } => {
-                config::config_get(&key, raw)?;
+            ConfigCommands::Get { key } => {
+                config::config_get(&key)?;
             }
             ConfigCommands::Set { key, value } => {
                 config::config_set(&key, &value)?;
@@ -1213,7 +1208,24 @@ async fn run_command(
                 generate(shell, &mut cmd, "linear-cli", &mut std::io::stdout());
             }
             ConfigCommands::WorkspaceAdd { name, api_key } => {
-                config::workspace_add(&name, &api_key)?;
+                let api_key = match api_key {
+                    Some(api_key) => Some(api_key),
+                    None => {
+                        let key = dialoguer::Password::new()
+                            .with_prompt(format!(
+                                "API key for workspace '{}' (leave blank to skip)",
+                                name
+                            ))
+                            .allow_empty_password(true)
+                            .interact()?;
+                        if key.is_empty() {
+                            None
+                        } else {
+                            Some(key)
+                        }
+                    }
+                };
+                config::workspace_add(&name, api_key.as_deref())?;
             }
             ConfigCommands::WorkspaceList => {
                 config::workspace_list()?;
@@ -1757,7 +1769,7 @@ async fn handle_done(
 
 /// Handle the `setup` command — guided onboarding wizard
 async fn handle_setup(output: &OutputOptions) -> Result<()> {
-    use std::io::{self, Write};
+    use dialoguer::Password;
 
     println!("Linear CLI Setup");
     println!("{}", "-".repeat(40));
@@ -1767,12 +1779,9 @@ async fn handle_setup(output: &OutputOptions) -> Result<()> {
     println!("Step 1: Authentication");
     println!("  Get your API key from: https://linear.app/settings/api");
     println!();
-    print!("  Enter your Linear API key: ");
-    io::stdout().flush()?;
-
-    let mut api_key = String::new();
-    io::stdin().read_line(&mut api_key)?;
-    let api_key = api_key.trim().to_string();
+    let api_key = Password::new()
+        .with_prompt("  Enter your Linear API key")
+        .interact()?;
 
     if api_key.is_empty() {
         anyhow::bail!("API key cannot be empty");

@@ -18,21 +18,7 @@ pub fn get_key(profile: &str) -> Result<Option<String>> {
     match entry.get_password() {
         Ok(password) => Ok(Some(password)),
         Err(keyring::Error::NoEntry) => Ok(None),
-        Err(keyring::Error::NoStorageAccess(_)) => {
-            if !crate::output::is_quiet() {
-                eprintln!("Warning: Keyring not available, falling back to config file");
-            }
-            Ok(None)
-        }
-        Err(e) => {
-            if !crate::output::is_quiet() {
-                eprintln!(
-                    "Warning: Keyring error ({}), falling back to config file",
-                    e
-                );
-            }
-            Ok(None)
-        }
+        Err(e) => Err(e).context("Failed to read API key from keyring"),
     }
 }
 
@@ -86,16 +72,7 @@ pub fn get_oauth_tokens(profile: &str) -> Result<Option<String>> {
     match entry.get_password() {
         Ok(json) => Ok(Some(json)),
         Err(keyring::Error::NoEntry) => Ok(None),
-        Err(keyring::Error::NoStorageAccess(_)) => Ok(None),
-        Err(e) => {
-            if !crate::output::is_quiet() {
-                eprintln!(
-                    "Warning: Keyring OAuth error ({}), falling back to config",
-                    e
-                );
-            }
-            Ok(None)
-        }
+        Err(e) => Err(e).context("Failed to read OAuth tokens from keyring"),
     }
 }
 

@@ -821,15 +821,6 @@ impl LinearClient {
                     token_type: new_tokens.token_type.clone(),
                     scopes,
                 };
-                #[cfg(feature = "secure-storage")]
-                let persist_result = if config::oauth_uses_secure_storage(profile).unwrap_or(false)
-                {
-                    config::save_oauth_config_secure(profile, &oauth_config)
-                } else {
-                    config::save_oauth_config(profile, &oauth_config)
-                };
-
-                #[cfg(not(feature = "secure-storage"))]
                 let persist_result = config::save_oauth_config(profile, &oauth_config);
 
                 if let Err(e) = persist_result {

@@ -11,21 +11,22 @@ allowed-tools: Bash
 linear-cli setup
 
 # Set API key
-linear-cli config set-key YOUR_API_KEY
+linear-cli config set-key
 
 # Show config
 linear-cli config show
 
 # Auth commands
-linear-cli auth login                # Store API key
+linear-cli auth login                # Store API key in OS keyring
 linear-cli auth oauth                # OAuth 2.0 browser flow (PKCE)
+linear-cli auth oauth --admin        # Explicitly add admin scope
 linear-cli auth oauth --client-id ID # Custom OAuth app
 linear-cli auth status               # Check auth status (shows type, expiry)
 linear-cli auth revoke               # Revoke OAuth tokens
 linear-cli auth logout               # Remove key
 
 # Workspaces
-linear-cli config workspace-add work KEY
+linear-cli config workspace-add work
 linear-cli config workspace-list
 linear-cli config workspace-switch work
 linear-cli config workspace-current
@@ -50,7 +51,7 @@ linear-cli completions dynamic fish >> ~/.config/fish/completions/linear-cli.fis
 
 | Variable | Purpose |
 |----------|---------|
-| `LINEAR_API_KEY` | API key override |
+| `LINEAR_API_KEY` | API key override for current invocation |
 | `LINEAR_CLI_PROFILE` | Profile override |
 | `LINEAR_CLI_OUTPUT` | Default output format |
 | `LINEAR_CLI_YES` | Auto-confirm prompts |

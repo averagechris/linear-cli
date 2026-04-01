@@ -33,7 +33,7 @@ chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
 rand = "0.8"
 csv = "1"
-keyring = { version = "3", optional = true }
+keyring = "3"
 sha2 = "0.10"
 open = "5"
 url = "2"
@@ -43,15 +43,3 @@ hex = "0.4"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
-
-[package.metadata.binstall]
-pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }{ archive-suffix }"
-bin-dir = "{ bin }{ binary-ext }"
-pkg-fmt = "tgz"
-
-[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
-pkg-fmt = "zip"
-
-[features]
-default = []
-secure-storage = ["keyring"]

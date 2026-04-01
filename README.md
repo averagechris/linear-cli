@@ -1,7 +1,6 @@
 # linear-cli
 
 [![Crates.io](https://img.shields.io/crates/v/linear-cli)](https://crates.io/crates/linear-cli)
-[![CI](https://github.com/Finesssee/linear-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/Finesssee/linear-cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
 
@@ -10,45 +9,42 @@ A fast, comprehensive command-line interface for [Linear](https://linear.app) bu
 ## Installation
 
 ```bash
-# Pre-built binary (fastest — no compilation)
-cargo binstall linear-cli
+# With Nix
+nix run .#linear-cli -- --help
 
-# From crates.io (compiles from source)
+# From crates.io (uses OS keyring for credentials)
 cargo install linear-cli
-
-# With OS keyring support (Keychain, Credential Manager, Secret Service)
-cargo install linear-cli --features secure-storage
 
 # From source
 git clone https://github.com/Finesssee/linear-cli.git
 cd linear-cli && cargo build --release
 ```
 
-Pre-built binaries for Linux (x86_64, aarch64), macOS (x86_64, aarch64), and Windows (x86_64) are available at [GitHub Releases](https://github.com/Finesssee/linear-cli/releases). [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) downloads these automatically.
+Credentials are stored in the OS keyring (Keychain, Credential Manager, or Secret Service). Plaintext credential storage is not supported.
 
 ## Updating
 
 ```bash
-# Recommended: let the CLI update itself
+# Check whether a newer upstream release exists
 linear-cli update
 
-# Check without installing
+# Check without changing any local installation
 linear-cli update --check
 
-# Manual fallback when you want the Cargo path directly
-cargo install linear-cli --force
+# Update a cargo-installed binary
+cargo install --locked linear-cli
 
-# Manual fallback for keyring-enabled builds
-cargo install linear-cli --force --features secure-storage
+# Update a Nix-based workflow
+nix flake update
 ```
 
-`cargo update` updates a project's `Cargo.lock`. It does not upgrade an installed `linear-cli` binary.
+`linear-cli` does not self-update in place. Review and update it via your package manager, flake inputs, or a source rebuild.
 
 ## Quick Start
 
 ```bash
 # 1. Set your API key (get one at https://linear.app/settings/api)
-linear-cli config set-key lin_api_xxxxxxxxxxxxx
+linear-cli auth login
 
 # Or use OAuth 2.0 (browser-based, auto-refreshing)
 linear-cli auth oauth
@@ -413,14 +409,11 @@ Two authentication methods are supported. Both can be used per-profile.
 ### API Key
 
 ```bash
-# Set directly
-linear-cli config set-key lin_api_xxxxxxxxxxxxx
-
-# Or interactive login
+# Interactive login (stored in OS keyring)
 linear-cli auth login
 
-# Store in OS keyring (requires --features secure-storage)
-linear-cli auth login --secure
+# Prompt and store API key via config command
+linear-cli config set-key
 
 # Or use environment variable (highest priority)
 export LINEAR_API_KEY=lin_api_xxx
@@ -432,15 +425,17 @@ Browser-based Authorization Code + PKCE flow with automatic token refresh.
 
 ```bash
 linear-cli auth oauth          # Opens browser for authorization
-linear-cli auth oauth --secure # Store OAuth tokens in OS keyring (best on official release builds)
+linear-cli auth oauth --admin  # Explicitly add admin scope when needed
 linear-cli auth status         # Show auth type, token expiry
 linear-cli auth revoke         # Revoke OAuth tokens
 linear-cli auth logout         # Remove stored credentials
 ```
 
-> On macOS, `--secure` works best with an official signed release binary. Locally built or frequently rebuilt CLI binaries can trigger repeated Keychain prompts and may fail keychain readback verification. If that happens, use plain `linear-cli auth oauth` or `LINEAR_API_KEY` instead.
+**Default OAuth scopes:** `read,write`
 
-**Auth priority:** `LINEAR_API_KEY` env var > OS keyring > OAuth tokens > config file API key.
+Add `--admin` only for commands that require elevated access such as webhook management.
+
+**Auth priority:** `--api-key` flag / `LINEAR_API_KEY` env var > OS keyring > OAuth tokens metadata.
 
 ## Configuration
 

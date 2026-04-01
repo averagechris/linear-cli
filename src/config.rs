@@ -26,7 +26,7 @@ pub struct Workspace {
     pub oauth: Option<OAuthConfig>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Config {
     pub current: Option<String>,
     #[serde(default)]
@@ -34,6 +34,49 @@ pub struct Config {
     // Legacy field for backward compatibility
     #[serde(skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct RuntimeOverrides {
+    api_key: Option<String>,
+    profile: Option<String>,
+}
+
+static RUNTIME_OVERRIDES: OnceLock<RuntimeOverrides> = OnceLock::new();
+
+pub fn set_runtime_overrides(api_key: Option<String>, profile: Option<String>) {
+    let _ = RUNTIME_OVERRIDES.set(RuntimeOverrides {
+        api_key: api_key.filter(|value| !value.trim().is_empty()),
+        profile: profile.filter(|value| !value.trim().is_empty()),
+    });
+}
+
+fn runtime_overrides() -> &'static RuntimeOverrides {
+    RUNTIME_OVERRIDES.get_or_init(RuntimeOverrides::default)
+}
+
+fn profile_override() -> Option<String> {
+    runtime_overrides().profile.clone().or_else(|| {
+        std::env::var("LINEAR_CLI_PROFILE")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+    })
+}
+
+fn api_key_override() -> Option<String> {
+    runtime_overrides().api_key.clone().or_else(|| {
+        std::env::var("LINEAR_API_KEY")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+    })
+}
+
+pub fn api_key_override_present() -> bool {
+    api_key_override().is_some()
+}
+
+pub fn profile_override_name() -> Option<String> {
+    profile_override()
 }
 
 fn config_path() -> Result<PathBuf> {
@@ -64,9 +107,11 @@ pub fn load_config() -> Result<Config> {
                 if config.current.is_none() {
                     config.current = Some("default".to_string());
                 }
-                // Save migrated config
-                save_config(&config)?;
             }
+        }
+
+        if migrate_plaintext_secrets(&mut config)? {
+            save_config(&config)?;
         }
 
         Ok(config)
@@ -75,9 +120,43 @@ pub fn load_config() -> Result<Config> {
     }
 }
 
+fn config_for_disk(config: &Config) -> Config {
+    let mut sanitized = config.clone();
+    sanitized.api_key = None;
+    for workspace in sanitized.workspaces.values_mut() {
+        workspace.api_key.clear();
+        if let Some(oauth) = workspace.oauth.clone() {
+            workspace.oauth = Some(oauth_metadata_only(&oauth));
+        }
+    }
+    sanitized
+}
+
+fn migrate_plaintext_secrets(config: &mut Config) -> Result<bool> {
+    let mut changed = false;
+
+    for (profile, workspace) in &mut config.workspaces {
+        if !workspace.api_key.trim().is_empty() {
+            crate::keyring::set_key(profile, &workspace.api_key)?;
+            workspace.api_key.clear();
+            changed = true;
+        }
+
+        if let Some(oauth) = workspace.oauth.clone() {
+            if oauth_config_has_secrets(&oauth) {
+                crate::keyring::set_oauth_tokens(profile, &serde_json::to_string(&oauth)?)?;
+                workspace.oauth = Some(oauth_metadata_only(&oauth));
+                changed = true;
+            }
+        }
+    }
+
+    Ok(changed)
+}
+
 pub fn save_config(config: &Config) -> Result<()> {
     let path = config_path()?;
-    let content = toml::to_string_pretty(config)?;
+    let content = toml::to_string_pretty(&config_for_disk(config))?;
 
     // Write to temp file then rename for atomicity
     let dir = path
@@ -109,9 +188,7 @@ pub fn save_config(config: &Config) -> Result<()> {
 
 pub fn set_api_key(key: &str) -> Result<()> {
     let mut config = load_config()?;
-    let profile = std::env::var("LINEAR_CLI_PROFILE")
-        .ok()
-        .filter(|p| !p.is_empty());
+    let profile = profile_override();
     let workspace_name = profile
         .or_else(|| config.current.clone())
         .unwrap_or_else(|| "default".to_string());
@@ -122,53 +199,36 @@ pub fn set_api_key(key: &str) -> Result<()> {
     config.workspaces.insert(
         workspace_name.clone(),
         Workspace {
-            api_key: key.to_string(),
+            api_key: String::new(),
             oauth: existing_oauth,
         },
     );
     if config.current.is_none() {
         config.current = Some(workspace_name.clone());
     }
+    crate::keyring::set_key(&workspace_name, key)?;
     save_config(&config)?;
     Ok(())
 }
 
 pub fn get_api_key() -> Result<String> {
-    // Check for LINEAR_API_KEY environment variable first
-    if let Ok(api_key) = std::env::var("LINEAR_API_KEY") {
-        if !api_key.is_empty() {
-            return Ok(api_key);
-        }
+    if let Some(api_key) = api_key_override() {
+        return Ok(api_key);
     }
 
-    // Try keyring if feature is enabled
-    #[cfg(feature = "secure-storage")]
-    {
-        let config = load_config()?;
-        let profile = std::env::var("LINEAR_CLI_PROFILE")
-            .ok()
-            .filter(|p| !p.is_empty())
-            .or(config.current.clone())
-            .unwrap_or_else(|| "default".to_string());
-
-        if let Ok(Some(key)) = crate::keyring::get_key(&profile) {
-            return Ok(key);
-        }
-    }
-
-    // Fall back to config file
     let config = load_config()?;
-    let profile = std::env::var("LINEAR_CLI_PROFILE")
-        .ok()
-        .filter(|p| !p.is_empty());
+    let profile = profile_override();
     let current = profile.or(config.current.clone()).context(
         "No workspace selected. Run: linear config workspace-add <name> or set LINEAR_CLI_PROFILE",
     )?;
-    let workspace = config.workspaces.get(&current).context(format!(
+    config.workspaces.get(&current).context(format!(
         "Workspace '{}' not found. Run: linear config workspace-add <name>",
         current
     ))?;
-    Ok(workspace.api_key.clone())
+    crate::keyring::get_key(&current)?.context(format!(
+        "No API key configured for workspace '{}'. Use 'linear auth login' or 'linear config set-key'.",
+        current
+    ))
 }
 
 pub fn config_file_path() -> Result<PathBuf> {
@@ -189,9 +249,7 @@ pub fn current_profile() -> Result<String> {
     }
 
     let config = load_config()?;
-    let profile = std::env::var("LINEAR_CLI_PROFILE")
-        .ok()
-        .filter(|p| !p.is_empty());
+    let profile = profile_override();
     let resolved = profile
         .or(config.current)
         .context("No workspace selected")?;
@@ -207,28 +265,36 @@ pub fn set_workspace_key(name: &str, api_key: &str) -> Result<()> {
     config.workspaces.insert(
         name.to_string(),
         Workspace {
-            api_key: api_key.to_string(),
+            api_key: String::new(),
             oauth: existing_oauth,
         },
     );
     if config.current.is_none() {
         config.current = Some(name.to_string());
     }
+    crate::keyring::set_key(name, api_key)?;
     save_config(&config)?;
     Ok(())
 }
 
-pub fn config_get(key: &str, raw: bool) -> Result<()> {
+pub fn config_get(key: &str) -> Result<()> {
     match key.to_lowercase().as_str() {
         "api-key" | "api_key" => {
-            let api_key = get_api_key()?;
-            if raw {
-                println!("{}", api_key);
-            } else if api_key.len() > 8 {
-                let masked = format!("{}***{}", &api_key[..4], &api_key[api_key.len() - 4..]);
-                println!("{}", masked);
+            if runtime_overrides().api_key.is_some() {
+                println!("provided via --api-key for this invocation");
+            } else if std::env::var("LINEAR_API_KEY")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+                .is_some()
+            {
+                println!("provided via LINEAR_API_KEY");
             } else {
-                println!("lin_***");
+                let profile = current_profile()?;
+                if crate::keyring::get_key(&profile)?.is_some() {
+                    println!("stored in keyring for profile '{}'", profile);
+                } else {
+                    anyhow::bail!("No API key configured for profile '{}'", profile);
+                }
             }
         }
         "profile" => {
@@ -242,7 +308,9 @@ pub fn config_get(key: &str, raw: bool) -> Result<()> {
 
 pub fn config_set(key: &str, value: &str) -> Result<()> {
     match key.to_lowercase().as_str() {
-        "api-key" | "api_key" => set_api_key(value),
+        "api-key" | "api_key" => anyhow::bail!(
+            "Setting API keys via positional arguments is disabled. Use 'linear-cli auth login' or 'linear-cli config set-key'."
+        ),
         "profile" => workspace_switch(value),
         _ => anyhow::bail!("Unknown config key: {}", key),
     }
@@ -258,13 +326,8 @@ pub fn show_config() -> Result<()> {
     if let Some(current) = &config.current {
         println!("Current workspace: {}", current);
         if let Some(workspace) = config.workspaces.get(current) {
-            let key = &workspace.api_key;
-            if key.len() > 12 {
-                let masked = format!("{}...{}", &key[..8], &key[key.len() - 4..]);
-                println!("API Key: {}", masked);
-            } else {
-                println!("API Key: {}", key);
-            }
+            println!("API Key: {}", api_key_status(current)?);
+            println!("OAuth: {}", oauth_status(workspace));
         }
     } else {
         println!("No workspace configured. Run: linear workspace add <name>");
@@ -275,7 +338,7 @@ pub fn show_config() -> Result<()> {
 
 // Workspace management functions
 
-pub fn workspace_add(name: &str, api_key: &str) -> Result<()> {
+pub fn workspace_add(name: &str, api_key: Option<&str>) -> Result<()> {
     let mut config = load_config()?;
 
     if config.workspaces.contains_key(name) {
@@ -288,10 +351,14 @@ pub fn workspace_add(name: &str, api_key: &str) -> Result<()> {
     config.workspaces.insert(
         name.to_string(),
         Workspace {
-            api_key: api_key.to_string(),
+            api_key: String::new(),
             oauth: None,
         },
     );
+
+    if let Some(api_key) = api_key {
+        crate::keyring::set_key(name, api_key)?;
+    }
 
     // If this is the first workspace, make it current
     if config.current.is_none() {
@@ -322,13 +389,8 @@ pub fn workspace_list() -> Result<()> {
     for (name, workspace) in &config.workspaces {
         let is_current = config.current.as_ref() == Some(name);
         let marker = if is_current { "*" } else { " " };
-        let key = &workspace.api_key;
-        let masked = if key.len() > 12 {
-            format!("{}...{}", &key[..8], &key[key.len() - 4..])
-        } else {
-            key.clone()
-        };
-        println!("{} {} ({})", marker, name, masked);
+        let auth_summary = workspace_auth_summary(name, workspace)?;
+        println!("{} {} ({})", marker, name, auth_summary);
     }
 
     println!();
@@ -360,13 +422,8 @@ pub fn workspace_current() -> Result<()> {
     if let Some(current) = &config.current {
         println!("Current workspace: {}", current);
         if let Some(workspace) = config.workspaces.get(current) {
-            let key = &workspace.api_key;
-            if key.len() > 12 {
-                let masked = format!("{}...{}", &key[..8], &key[key.len() - 4..]);
-                println!("API Key: {}", masked);
-            } else {
-                println!("API Key: {}", key);
-            }
+            println!("API Key: {}", api_key_status(current)?);
+            println!("OAuth: {}", oauth_status(workspace));
         }
     } else {
         println!("No workspace selected. Run: linear workspace add <name>");
@@ -383,6 +440,8 @@ pub fn workspace_remove(name: &str) -> Result<()> {
     }
 
     config.workspaces.remove(name);
+    crate::keyring::delete_key(name)?;
+    crate::keyring::delete_oauth_tokens(name)?;
 
     // If we removed the current workspace, clear it or switch to another
     if config.current.as_ref() == Some(&name.to_string()) {
@@ -400,6 +459,9 @@ pub fn workspace_remove(name: &str) -> Result<()> {
 
 /// Save OAuth config for a profile
 pub fn save_oauth_config(profile: &str, oauth_config: &OAuthConfig) -> Result<()> {
+    let json = serde_json::to_string(oauth_config)?;
+    crate::keyring::set_oauth_tokens(profile, &json)?;
+
     let mut config = load_config()?;
     let workspace = config
         .workspaces
@@ -408,7 +470,7 @@ pub fn save_oauth_config(profile: &str, oauth_config: &OAuthConfig) -> Result<()
             api_key: String::new(),
             oauth: None,
         });
-    workspace.oauth = Some(oauth_config.clone());
+    workspace.oauth = Some(oauth_metadata_only(oauth_config));
     if config.current.is_none() {
         config.current = Some(profile.to_string());
     }
@@ -425,7 +487,6 @@ fn oauth_config_has_secrets(oauth_config: &OAuthConfig) -> bool {
             .unwrap_or(false)
 }
 
-#[cfg(feature = "secure-storage")]
 fn oauth_metadata_only(oauth_config: &OAuthConfig) -> OAuthConfig {
     OAuthConfig {
         client_id: oauth_config.client_id.clone(),
@@ -443,58 +504,20 @@ pub fn get_oauth_metadata(profile: &str) -> Result<Option<OAuthConfig>> {
     Ok(config.workspaces.get(profile).and_then(|w| w.oauth.clone()))
 }
 
-#[cfg(feature = "secure-storage")]
-pub fn oauth_uses_secure_storage(profile: &str) -> Result<bool> {
-    if crate::keyring::get_oauth_tokens(profile)?.is_some() {
-        return Ok(true);
-    }
-
-    Ok(get_oauth_metadata(profile)?
-        .map(|oauth| !oauth.client_id.is_empty() && !oauth_config_has_secrets(&oauth))
-        .unwrap_or(false))
-}
-
-#[cfg(feature = "secure-storage")]
-pub fn save_oauth_config_secure(profile: &str, oauth_config: &OAuthConfig) -> Result<()> {
-    let json = serde_json::to_string(oauth_config)?;
-    crate::keyring::set_oauth_tokens(profile, &json)?;
-
-    let stored_json = crate::keyring::get_oauth_tokens(profile)?
-        .context("OAuth tokens were written to keyring but could not be read back")?;
-    let stored_oauth: OAuthConfig = serde_json::from_str(&stored_json)
-        .context("OAuth token payload read back from keyring was invalid")?;
-
-    if stored_oauth.access_token != oauth_config.access_token
-        || stored_oauth.refresh_token != oauth_config.refresh_token
-    {
-        anyhow::bail!("OAuth tokens stored in keyring could not be verified after saving");
-    }
-
-    save_oauth_config(profile, &oauth_metadata_only(oauth_config))
-}
-
 /// Get OAuth config for a profile
 pub fn get_oauth_config(profile: &str) -> Result<Option<OAuthConfig>> {
-    // Try keyring first if feature enabled
-    #[cfg(feature = "secure-storage")]
-    {
-        if let Ok(Some(json_str)) = crate::keyring::get_oauth_tokens(profile) {
-            if let Ok(oauth) = serde_json::from_str::<OAuthConfig>(&json_str) {
-                return Ok(Some(oauth));
-            }
-        }
+    if let Some(json_str) = crate::keyring::get_oauth_tokens(profile)? {
+        let oauth = serde_json::from_str::<OAuthConfig>(&json_str)
+            .context("OAuth token payload stored in keyring was invalid")?;
+        return Ok(Some(oauth));
     }
 
-    // Fall back to config file
-    Ok(get_oauth_metadata(profile)?.filter(oauth_config_has_secrets))
+    Ok(None)
 }
 
 /// Clear OAuth config for a profile
 pub fn clear_oauth_config(profile: &str) -> Result<()> {
-    #[cfg(feature = "secure-storage")]
-    {
-        crate::keyring::delete_oauth_tokens(profile)?;
-    }
+    crate::keyring::delete_oauth_tokens(profile)?;
 
     let mut config = load_config()?;
     if let Some(workspace) = config.workspaces.get_mut(profile) {
@@ -502,6 +525,36 @@ pub fn clear_oauth_config(profile: &str) -> Result<()> {
     }
     save_config(&config)?;
     Ok(())
+}
+
+fn api_key_status(profile: &str) -> Result<&'static str> {
+    Ok(if crate::keyring::get_key(profile)?.is_some() {
+        "stored in keyring"
+    } else {
+        "not configured"
+    })
+}
+
+fn oauth_status(workspace: &Workspace) -> &'static str {
+    if workspace.oauth.is_some() {
+        "configured"
+    } else {
+        "not configured"
+    }
+}
+
+fn workspace_auth_summary(name: &str, workspace: &Workspace) -> Result<String> {
+    let mut parts = Vec::new();
+    if crate::keyring::get_key(name)?.is_some() {
+        parts.push("api-key:keyring");
+    }
+    if workspace.oauth.is_some() {
+        parts.push("oauth:keyring");
+    }
+    if parts.is_empty() {
+        parts.push("no credentials");
+    }
+    Ok(parts.join(", "))
 }
 
 #[cfg(test)]

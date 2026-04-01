@@ -1,4 +1,5 @@
 use anyhow::Result;
+use dialoguer::Password;
 use serde_json::json;
 
 use crate::api::LinearClient;
@@ -10,33 +11,28 @@ pub async fn run(output: &OutputOptions, check_api: bool, fix: bool) -> Result<(
     let config_path = config::config_file_path()?;
     let config_data = config::load_config()?;
     let profile = config::current_profile().ok();
-    let env_key = std::env::var("LINEAR_API_KEY")
-        .ok()
-        .filter(|k| !k.is_empty());
-    let env_profile = std::env::var("LINEAR_CLI_PROFILE")
-        .ok()
-        .filter(|p| !p.is_empty());
+    let api_key_override = config::api_key_override_present();
+    let profile_override = config::profile_override_name();
     let cache_dir = cache::cache_dir_path()?;
 
     let config_file_configured = profile
         .as_ref()
         .and_then(|p| config_data.workspaces.get(p))
-        .map(|w| !w.api_key.is_empty())
-        .unwrap_or(false);
+        .is_some();
 
-    #[cfg(feature = "secure-storage")]
     let keyring_available = crate::keyring::is_available();
-    #[cfg(not(feature = "secure-storage"))]
-    let keyring_available = false;
 
-    #[cfg(feature = "secure-storage")]
     let oauth_keyring_configured = profile
         .as_ref()
         .and_then(|p| crate::keyring::get_oauth_tokens(p).ok())
         .flatten()
         .is_some();
-    #[cfg(not(feature = "secure-storage"))]
-    let oauth_keyring_configured = false;
+
+    let api_key_keyring_configured = profile
+        .as_ref()
+        .and_then(|p| crate::keyring::get_key(p).ok())
+        .flatten()
+        .is_some();
 
     let oauth_configured = profile
         .as_ref()
@@ -44,7 +40,10 @@ pub async fn run(output: &OutputOptions, check_api: bool, fix: bool) -> Result<(
         .flatten()
         .is_some();
 
-    let configured = config_file_configured || oauth_configured || oauth_keyring_configured;
+    let configured = config_file_configured
+        || api_key_keyring_configured
+        || oauth_configured
+        || oauth_keyring_configured;
 
     let mut api_ok = None;
     let mut api_error = None;
@@ -73,17 +72,13 @@ pub async fn run(output: &OutputOptions, check_api: bool, fix: bool) -> Result<(
         if !configured && profile.is_none() {
             // Only prompt if not in quiet/json mode
             if !output.is_json() && !crate::output::is_quiet() {
-                use std::io::{self, Write};
                 println!("No API key configured.");
-                print!("Enter your Linear API key: ");
-                io::stdout().flush()?;
-
-                let mut key = String::new();
-                io::stdin().read_line(&mut key)?;
-                let key = key.trim();
+                let key = Password::new()
+                    .with_prompt("Enter your Linear API key")
+                    .interact()?;
 
                 if !key.is_empty() {
-                    config::set_api_key(key)?;
+                    config::set_api_key(&key)?;
                     fixed.push("Saved API key");
                 }
             }
@@ -98,17 +93,14 @@ pub async fn run(output: &OutputOptions, check_api: bool, fix: bool) -> Result<(
 
         // Fix 4: API key invalid — prompt for new one
         if api_ok == Some(false) && !output.is_json() && !crate::output::is_quiet() {
-            use std::io::{self, Write};
             println!("API key is invalid or expired.");
-            print!("Enter a new Linear API key (or press Enter to skip): ");
-            io::stdout().flush()?;
-
-            let mut key = String::new();
-            io::stdin().read_line(&mut key)?;
-            let key = key.trim();
+            let key = Password::new()
+                .with_prompt("Enter a new Linear API key (or leave blank to skip)")
+                .allow_empty_password(true)
+                .interact()?;
 
             if !key.is_empty() {
-                config::set_api_key(key)?;
+                config::set_api_key(&key)?;
                 fixed.push("Updated API key");
 
                 // Re-validate
@@ -166,8 +158,8 @@ pub async fn run(output: &OutputOptions, check_api: bool, fix: bool) -> Result<(
                 "keyring_available": keyring_available,
                 "oauth_configured": oauth_configured,
                 "oauth_keyring_configured": oauth_keyring_configured,
-                "env_api_key": env_key.is_some(),
-                "env_profile": env_profile,
+                "api_key_override": api_key_override,
+                "profile_override": profile_override,
                 "cache_dir": cache_dir.to_string_lossy(),
                 "cache_ttl_seconds": output.cache.effective_ttl_seconds(),
                 "api_ok": api_ok,
@@ -198,12 +190,12 @@ pub async fn run(output: &OutputOptions, check_api: bool, fix: bool) -> Result<(
         }
     );
     println!(
-        "Env API key override: {}",
-        if env_key.is_some() { "yes" } else { "no" }
+        "API key override: {}",
+        if api_key_override { "yes" } else { "no" }
     );
     println!(
-        "Env profile override: {}",
-        env_profile.unwrap_or_else(|| "none".to_string())
+        "Profile override: {}",
+        profile_override.unwrap_or_else(|| "none".to_string())
     );
     println!("Cache dir: {}", cache_dir.display());
     println!("Cache TTL: {}s", output.cache.effective_ttl_seconds());

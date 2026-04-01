@@ -666,8 +666,8 @@ fn test_auth_oauth_help() {
     assert_eq!(code, 0);
     assert!(stdout.contains("--client-id"));
     assert!(stdout.contains("--scopes"));
+    assert!(stdout.contains("--admin"));
     assert!(stdout.contains("--port"));
-    assert!(stdout.contains("--secure"));
 }
 
 #[test]
@@ -675,8 +675,8 @@ fn test_auth_oauth_default_scopes() {
     let (code, stdout, _stderr) = run_cli(&["auth", "oauth", "--help"]);
     assert_eq!(code, 0);
     assert!(
-        stdout.contains("read,write,admin"),
-        "default scopes should be read,write,admin"
+        stdout.contains("read,write"),
+        "default scopes should be read,write"
     );
 }
 
@@ -858,13 +858,10 @@ fn test_projects_list_view_flag() {
 }
 
 #[test]
-fn test_auth_oauth_default_scopes_include_admin() {
+fn test_auth_oauth_help_mentions_admin_flag() {
     let (code, stdout, _stderr) = run_cli(&["auth", "oauth", "--help"]);
     assert_eq!(code, 0);
-    assert!(
-        stdout.contains("read,write,admin"),
-        "default scopes should now include admin"
-    );
+    assert!(stdout.contains("--admin"));
 }
 
 // === Whoami command tests ===

@@ -136,7 +136,7 @@ linear-cli st list -t Engineering
 linear-cli st get "In Progress" -t Engineering
 
 # Config
-linear-cli config set-key YOUR_API_KEY
+linear-cli auth login
 linear-cli config show
 ```
 
