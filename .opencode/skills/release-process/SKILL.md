@@ -1,7 +1,7 @@
 ---
 name: release-process
 description: Review commits since the last SourceHut tag, choose the next semver version from Conventional Commit messages, and publish a release tag for this fork.
-allowed-tools: Bash, Read, Grep
+allowed-tools: Bash, Read, Grep, Edit, Write
 ---
 
 # Release Process
@@ -22,6 +22,8 @@ Use the latest `vX.Y.Z` tag as the release baseline.
 jj log -r '<last-tag>::@-' --no-pager --color=never --no-graph
 ```
 
+If `@` is a working-copy change with content, use `<last-tag>::@` instead.
+
 Commit messages in this fork should follow Conventional Commits.
 
 ## 3. Choose the next version from commit messages
@@ -34,15 +36,21 @@ Use the highest bump implied by commits since the last tag:
 
 If no releasable commits exist, stop and explain why rather than tagging anyway.
 
-## 4. Update `Cargo.toml`
+## 4. Create a version bump commit
 
-Set `[package].version` in `Cargo.toml` to the chosen next version.
+Create a new jj change for the version bump, update `Cargo.toml`, and describe it:
+
+```bash
+jj new -m 'chore: bump version to X.Y.Z'
+```
+
+Then edit `Cargo.toml` to set `[package].version` to the new version.
+
+Verify:
 
 ```bash
 grep '^version = ' Cargo.toml
 ```
-
-The release tag helper reads the version directly from `Cargo.toml`, so the file must be updated first.
 
 ## 5. Validate before tagging
 
@@ -52,37 +60,46 @@ nix run .#ci-test
 nix run .#ci-clippy
 ```
 
-### Release friction notes
+All three must pass before proceeding.
 
-- `nix run .#release-tag` creates an annotated tag from `Cargo.toml`'s version but does **not** push it. The agent should present the push command for the user to run.
-- The helper reads `Cargo.toml` directly, so if `package.version` changes, refresh `Cargo.lock` by running the validation commands before tagging.
-- If local git tag signing blocks automation, stop and show the user the exact fallback commands printed by `nix run .#release-tag`; the user must finish those manually because signing approval/repair is local-machine state.
-- In jj repos, if you are sitting on a fresh empty child change, tag the intended release revision explicitly instead of trusting `@`. Common fallback:
-
-```bash
-jj tag create vX.Y.Z --revision @-
-```
-
-Use `@-` only when the release commit is the parent of your current empty working-copy change; otherwise specify the actual release revision.
-
-## 6. Create the tag
+## 6. Tag and push
 
 ```bash
 nix run .#release-tag
 ```
 
-This creates an annotated tag matching `Cargo.toml`'s version, normalized to `vX.Y.Z`.
+This script:
+1. Reads the version from `Cargo.toml` and normalizes it to `vX.Y.Z`
+2. Validates semver format
+3. Checks that the tag doesn't already exist locally or on origin
+4. In jj repos: runs `jj tag set vX.Y.Z --revision @`
+5. Pushes the tag to origin with `git push`
 
-## 7. Push the tag
+### `--revision` flag
 
-The agent should **not** push automatically. Present the command for the user to run:
+By default the script tags `@`. If you're sitting on a fresh empty child change after the version bump, pass the actual release revision:
 
 ```bash
-jj git push --remote origin --tag-pattern 'vX.Y.Z'
+nix run .#release-tag -- --revision @-
+```
+
+### If the push fails
+
+The script prints the manual fallback command. Common reasons:
+- SSH key not loaded — run `ssh-add` and retry
+- Remote tag already exists — check with `jj tag list` and the remote
+
+## 7. Move main bookmark
+
+After tagging, move `main` forward and push it:
+
+```bash
+jj bookmark set main --revision vX.Y.Z
+jj git push --remote origin --bookmark main
 ```
 
 ## 8. Suggested prompts
 
 - "Review commits since the last tag and tell me the next release version"
 - "Choose the next semver bump from Conventional Commit messages"
-- "Prepare this fork for release and tell me whether `Cargo.toml` is ready for `nix run .#release-tag`"
+- "Prepare this fork for release"

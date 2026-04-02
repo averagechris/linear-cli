@@ -90,35 +90,25 @@
           cargo test --locked
         '';
         releaseTagScript = ''
-                    if [[ $# -eq 1 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
-                      printf 'usage: %s\n' "$0"
-                      printf 'create and push annotated SourceHut release tag from Cargo.toml version\n'
-                      exit 0
-                    fi
+          if [[ $# -eq 1 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
+            printf 'usage: %s [--revision REV]\n' "$0"
+            printf 'Create and push a release tag from Cargo.toml version.\n\n'
+            printf 'In jj repos, uses jj tag set + git push.\n'
+            printf 'In plain git repos, uses git tag + git push.\n'
+            exit 0
+          fi
 
-                    if [[ $# -ne 0 ]]; then
-                      printf 'usage: %s\n' "$0" >&2
-                      exit 1
-                    fi
+          revision="@"
+          while [[ $# -gt 0 ]]; do
+            case "$1" in
+              --revision) revision="$2"; shift 2 ;;
+              *) printf 'unknown argument: %s\n' "$1" >&2; exit 1 ;;
+            esac
+          done
 
-                    repo_root="$(git rev-parse --show-toplevel)"
+          repo_root="$(git rev-parse --show-toplevel)"
 
-                    if [[ -d .jj ]]; then
-                      target_commit="$(jj log -r @ --no-pager --color=never --no-graph -T 'commit_id ++ "\n"' | tr -d '\r\n')"
-                      if [[ -z "$target_commit" ]]; then
-                        printf 'failed to resolve current jj commit for tagging\n' >&2
-                        exit 1
-                      fi
-                    else
-                      if ! git diff --quiet || ! git diff --cached --quiet; then
-                        printf 'working tree must be clean before tagging\n' >&2
-                        exit 1
-                      fi
-
-                      target_commit="$(git rev-parse HEAD)"
-                    fi
-
-                    version="$(${pkgs.python3}/bin/python3 -c '
+          version="$(${pkgs.python3}/bin/python3 -c '
           import pathlib, sys, tomllib
           path = pathlib.Path(sys.argv[1])
           with path.open("rb") as f:
@@ -129,36 +119,41 @@
           print(version)
           ' "$repo_root/Cargo.toml")"
 
-                    if [[ "$version" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                      tag="v''${version#v}"
-                    else
-                      printf 'Cargo.toml version must be semver in the form X.Y.Z\n' >&2
-                      exit 1
-                    fi
+          if [[ "$version" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            tag="v''${version#v}"
+          else
+            printf 'Cargo.toml version must be semver in the form X.Y.Z\n' >&2
+            exit 1
+          fi
 
-                    if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
-                      printf 'local tag already exists: %s\n' "$tag" >&2
-                      exit 1
-                    fi
+          if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+            printf 'local tag already exists: %s\n' "$tag" >&2
+            exit 1
+          fi
 
-          if [[ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ]]; then
+          if [[ -n "$(git ls-remote --tags origin "refs/tags/$tag" 2>/dev/null)" ]]; then
             printf 'remote tag already exists on origin: %s\n' "$tag" >&2
             exit 1
           fi
 
-          tag_command="git tag -a \"$tag\" \"$target_commit\" -m \"Release $tag\""
-          push_command="git push origin \"refs/tags/$tag\""
-
-          if ! git tag -a "$tag" "$target_commit" -m "Release $tag"; then
-            printf 'failed to create %s automatically. this usually means local git signing needs manual approval or repair.\n' "$tag" >&2
-            printf 'run these commands manually after fixing signing:\n  %s\n  %s\n' "$tag_command" "$push_command" >&2
-            exit 1
+          if [[ -d .jj ]]; then
+            jj tag set "$tag" --revision "$revision" --no-pager --color=never
+            printf 'created tag %s via jj\n' "$tag"
+          else
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+              printf 'working tree must be clean before tagging\n' >&2
+              exit 1
+            fi
+            git tag -a "$tag" HEAD -m "Release $tag"
+            printf 'created annotated tag %s\n' "$tag"
           fi
 
           if ! git push origin "refs/tags/$tag"; then
-            printf 'failed to push %s automatically. run this manually:\n  %s\n' "$tag" "$push_command" >&2
+            printf 'failed to push %s. run manually:\n  git push origin "refs/tags/%s"\n' "$tag" "$tag" >&2
             exit 1
           fi
+
+          printf 'pushed %s to origin\n' "$tag"
         '';
         mkRepoScript = {
           name,
