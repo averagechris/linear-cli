@@ -1,5 +1,5 @@
 {
-  description = "Nix flake for linear-cli";
+  description = "Nix flake for linear";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -17,6 +17,7 @@
         lib = pkgs.lib;
         cargoToml = fromTOML (builtins.readFile ./Cargo.toml);
         package = cargoToml.package;
+        cliProgram = "linear";
         commonRustArgs = {
           version = package.version;
           src = lib.cleanSource ./.;
@@ -189,10 +190,13 @@
             inherit name runtimeInputs;
             inherit text;
           };
-        linear-cli = pkgs.rustPlatform.buildRustPackage (commonRustArgs
+        linear = pkgs.rustPlatform.buildRustPackage (commonRustArgs
           // {
-            pname = package.name;
+            pname = cliProgram;
             doCheck = false;
+            postInstall = ''
+              mv "$out/bin/${package.name}" "$out/bin/${cliProgram}"
+            '';
 
             meta = lib.attrsets.filterAttrs (_: value: value != null) {
               description = package.description or null;
@@ -201,10 +205,10 @@
                 if (package.license or null) == "MIT"
                 then lib.licenses.mit
                 else null;
-              mainProgram = package.name;
+              mainProgram = cliProgram;
             };
           });
-        linear-cli-runtime-tools = with pkgs;
+        linear-runtime-tools = with pkgs;
           [
             git
             gh
@@ -212,13 +216,13 @@
             less
           ]
           ++ lib.optionals stdenv.isLinux [xdg-utils];
-        linear-cli-bundled = pkgs.symlinkJoin {
-          name = "${package.name}-bundled-${package.version}";
-          paths = [linear-cli];
+        linear-bundled = pkgs.symlinkJoin {
+          name = "${cliProgram}-bundled-${package.version}";
+          paths = [linear];
           nativeBuildInputs = [pkgs.makeWrapper];
           postBuild = ''
-            wrapProgram "$out/bin/${package.name}" \
-              --prefix PATH : ${lib.makeBinPath linear-cli-runtime-tools}
+            wrapProgram "$out/bin/${cliProgram}" \
+              --prefix PATH : ${lib.makeBinPath linear-runtime-tools}
           '';
         };
         fetch-upstream = mkRepoScript {
@@ -302,25 +306,28 @@
             mkdir -p "$out"
           '';
       in {
-        packages.default = linear-cli;
+        packages.default = linear;
         packages.ci-clippy = ci-clippy;
         packages.ci-fmt = ci-fmt;
         packages.ci-test = ci-test;
-        packages.linear-cli-bundled = linear-cli-bundled;
-        packages.linear-cli = linear-cli;
+        packages.linear-bundled = linear-bundled;
+        packages.linear = linear;
         packages.fetch-upstream = fetch-upstream;
         packages.link-opencode-skills = link-opencode-skills;
         packages.release-tag = release-tag;
         packages.scripts = repo-scripts;
 
         apps.default = flake-utils.lib.mkApp {
-          drv = linear-cli;
+          drv = linear;
+          exePath = "/bin/${cliProgram}";
         };
-        apps.linear-cli-bundled = flake-utils.lib.mkApp {
-          drv = linear-cli-bundled;
+        apps.linear-bundled = flake-utils.lib.mkApp {
+          drv = linear-bundled;
+          exePath = "/bin/${cliProgram}";
         };
-        apps.linear-cli = flake-utils.lib.mkApp {
-          drv = linear-cli;
+        apps.linear = flake-utils.lib.mkApp {
+          drv = linear;
+          exePath = "/bin/${cliProgram}";
         };
         apps.ci-clippy = flake-utils.lib.mkApp {
           drv = ci-clippy;
@@ -342,12 +349,12 @@
         };
 
         checks = {
-          build = linear-cli;
+          build = linear;
           fmt = fmt-check;
         };
 
         devShells.default = pkgs.mkShell {
-          inputsFrom = [linear-cli];
+          inputsFrom = [linear];
           packages = with pkgs; [
             alejandra
             cargo
@@ -380,7 +387,7 @@
           skillNames);
 
       overlays.default = final: prev: {
-        inherit (self.packages.${prev.system}) linear-cli;
+        inherit (self.packages.${prev.system}) linear;
       };
     };
 }

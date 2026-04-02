@@ -204,7 +204,7 @@ fn list_templates(output: &OutputOptions) -> Result<()> {
     if store.templates.is_empty() {
         ensure_non_empty(&[], output)?;
         println!("No templates found.");
-        println!("\nCreate one with: linear-cli templates create <name>");
+        println!("\nCreate one with: linear templates create <name>");
         return Ok(());
     }
 

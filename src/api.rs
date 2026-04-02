@@ -226,7 +226,7 @@ pub async fn resolve_team_id(
         paginated_nodes_path: &["data", "teams", "nodes"],
         paginated_page_info_path: &["data", "teams", "pageInfo"],
         not_found_msg: &format!(
-            "Team not found: {}. Use linear-cli t list to see available teams.",
+            "Team not found: {}. Use linear t list to see available teams.",
             team
         ),
     };
@@ -401,8 +401,8 @@ pub async fn resolve_project_id(
     anyhow::bail!(
         "Could not resolve project \"{}\". \
          Tip: try using the project's slugId (UUID) instead:\n  \
-         linear-cli issues update <ID> --project \"<slugId>\"\n\
-         You can find project slugIds via: linear-cli projects list",
+         linear issues update <ID> --project \"<slugId>\"\n\
+         You can find project slugIds via: linear projects list",
         project
     )
 }
@@ -547,7 +547,7 @@ pub async fn resolve_view_id(
         paginated_nodes_path: &["data", "customViews", "nodes"],
         paginated_page_info_path: &["data", "customViews", "pageInfo"],
         not_found_msg: &format!(
-            "Custom view not found: {}. Use linear-cli views list to see available views.",
+            "Custom view not found: {}. Use linear views list to see available views.",
             view
         ),
     };

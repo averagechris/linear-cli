@@ -91,7 +91,7 @@ fn resolve_query_source(query: Option<String>) -> Result<String> {
                 anyhow::bail!(
                     "No query provided. Pass a GraphQL query string as an argument, \
                      or pipe one via stdin:\n  \
-                     echo '{{ viewer {{ id }} }}' | linear-cli api query"
+                     echo '{{ viewer {{ id }} }}' | linear api query"
                 )
             }
         }

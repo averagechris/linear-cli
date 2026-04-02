@@ -295,7 +295,7 @@ pub fn config_get(key: &str) -> Result<()> {
 pub fn config_set(key: &str, value: &str) -> Result<()> {
     match key.to_lowercase().as_str() {
         "api-key" | "api_key" => anyhow::bail!(
-            "Setting API keys via positional arguments is disabled. Use 'linear-cli auth login' or 'linear-cli config set-key'."
+            "Setting API keys via positional arguments is disabled. Use 'linear auth login' or 'linear config set-key'."
         ),
         "profile" => workspace_switch(value),
         _ => anyhow::bail!("Unknown config key: {}", key),

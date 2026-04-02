@@ -78,7 +78,7 @@ pub fn is_yes() -> bool {
 }
 
 #[derive(Parser)]
-#[command(name = "linear-cli")]
+#[command(name = "linear")]
 #[command(
     about = "A powerful CLI for Linear.app - manage issues, projects, and more from your terminal"
 )]
@@ -279,10 +279,10 @@ enum Commands {
     Common,
     /// Show agent-focused capabilities and examples
     Agent,
-    /// Check SourceHut release tags for a newer version of linear-cli
+    /// Check SourceHut release tags for a newer version of linear
     #[command(after_help = r#"EXAMPLES:
-    linear-cli update
-    linear-cli update --check"#)]
+    linear update
+    linear update --check"#)]
     Update {
         /// Check whether a newer release exists without installing it
         #[arg(long)]
@@ -1139,7 +1139,7 @@ async fn run_command(
         Commands::Completions { action } => match action {
             CompletionCommands::Static { shell } => {
                 let mut cmd = Cli::command();
-                generate(shell, &mut cmd, "linear-cli", &mut std::io::stdout());
+                generate(shell, &mut cmd, "linear", &mut std::io::stdout());
             }
             CompletionCommands::Dynamic { shell } => {
                 print_dynamic_completion_script(shell);
@@ -1177,7 +1177,7 @@ async fn run_command(
             }
             ConfigCommands::Completions { shell } => {
                 let mut cmd = Cli::command();
-                generate(shell, &mut cmd, "linear-cli", &mut std::io::stdout());
+                generate(shell, &mut cmd, "linear", &mut std::io::stdout());
             }
             ConfigCommands::WorkspaceAdd { name, api_key } => {
                 let api_key = match api_key {
@@ -2202,9 +2202,9 @@ fn print_dynamic_completion_script(shell: Shell) {
     }
 }
 
-const BASH_DYNAMIC_COMPLETIONS: &str = r#"# Dynamic completions for linear-cli (bash)
+const BASH_DYNAMIC_COMPLETIONS: &str = r#"# Dynamic completions for linear (bash)
 # Source this file or add to ~/.bashrc:
-#   eval "$(linear-cli completions dynamic bash)"
+#   eval "$(linear completions dynamic bash)"
 
 _linear_cli_dynamic() {
     _linear_cli_collect() {
@@ -2215,7 +2215,7 @@ _linear_cli_dynamic() {
         while IFS=$'\t' read -r value _; do
             [[ -z "$value" ]] && continue
             [[ "$value" == "$cur"* ]] && COMPREPLY+=("$value")
-        done < <(linear-cli _complete --type "$type" --prefix "$cur" "$@" 2>/dev/null)
+        done < <(linear _complete --type "$type" --prefix "$cur" "$@" 2>/dev/null)
     }
 
     local cur prev
@@ -2270,12 +2270,12 @@ _linear_cli_dynamic() {
 }
 
 # Register the dynamic completion function
-complete -o default -F _linear_cli_dynamic linear-cli
+complete -o default -F _linear_cli_dynamic linear
 "#;
 
-const ZSH_DYNAMIC_COMPLETIONS: &str = r#"# Dynamic completions for linear-cli (zsh)
+const ZSH_DYNAMIC_COMPLETIONS: &str = r#"# Dynamic completions for linear (zsh)
 # Source this file or add to ~/.zshrc:
-#   eval "$(linear-cli completions dynamic zsh)"
+#   eval "$(linear completions dynamic zsh)"
 
 _linear_cli_dynamic() {
     local -a completions
@@ -2292,7 +2292,7 @@ _linear_cli_dynamic() {
 
     case "$words[$((CURRENT-1))]" in
         -t|--team)
-            completions=(${(f)"$(linear-cli _complete --type teams --prefix "$words[$CURRENT]" 2>/dev/null)"})
+            completions=(${(f)"$(linear _complete --type teams --prefix "$words[$CURRENT]" 2>/dev/null)"})
             _describe 'team' completions
             return
             ;;
@@ -2301,67 +2301,67 @@ _linear_cli_dynamic() {
             if [[ -n "$team_val" ]]; then
                 team_arg="--team $team_val"
             fi
-            completions=(${(f)"$(linear-cli _complete --type statuses --prefix "$words[$CURRENT]" ${=team_arg} 2>/dev/null)"})
+            completions=(${(f)"$(linear _complete --type statuses --prefix "$words[$CURRENT]" ${=team_arg} 2>/dev/null)"})
             _describe 'status' completions
             return
             ;;
         --project)
-            completions=(${(f)"$(linear-cli _complete --type projects --prefix "$words[$CURRENT]" 2>/dev/null)"})
+            completions=(${(f)"$(linear _complete --type projects --prefix "$words[$CURRENT]" 2>/dev/null)"})
             _describe 'project' completions
             return
             ;;
         --label|-l)
-            completions=(${(f)"$(linear-cli _complete --type labels --prefix "$words[$CURRENT]" 2>/dev/null)"})
+            completions=(${(f)"$(linear _complete --type labels --prefix "$words[$CURRENT]" 2>/dev/null)"})
             _describe 'label' completions
             return
             ;;
         --assignee|--user)
-            completions=(${(f)"$(linear-cli _complete --type users --prefix "$words[$CURRENT]" 2>/dev/null)"})
+            completions=(${(f)"$(linear _complete --type users --prefix "$words[$CURRENT]" 2>/dev/null)"})
             _describe 'user' completions
             return
             ;;
         get|update|start|close|done|archive|unarchive|comment|link|assign|move|transfer|open)
-            completions=(${(f)"$(linear-cli _complete --type issues --prefix "$words[$CURRENT]" 2>/dev/null)"})
+            completions=(${(f)"$(linear _complete --type issues --prefix "$words[$CURRENT]" 2>/dev/null)"})
             _describe 'issue' completions
             return
             ;;
     esac
 }
 
-compdef _linear_cli_dynamic linear-cli
+compdef _linear_cli_dynamic linear
 "#;
 
-const FISH_DYNAMIC_COMPLETIONS: &str = r#"# Dynamic completions for linear-cli (fish)
-# Source this file or save to ~/.config/fish/completions/linear-cli-dynamic.fish:
-#   linear-cli completions dynamic fish > ~/.config/fish/completions/linear-cli-dynamic.fish
+const FISH_DYNAMIC_COMPLETIONS: &str = r#"# Dynamic completions for linear (fish)
+# Source this file or save to ~/.config/fish/completions/linear-dynamic.fish:
+#   linear completions dynamic fish > ~/.config/fish/completions/linear-dynamic.fish
 
 # Team completions
-complete -c linear-cli -l team -s t -x -a '(linear-cli _complete --type teams 2>/dev/null | string replace \t "\t")'
+complete -c linear -l team -s t -x -a '(linear _complete --type teams 2>/dev/null | string replace \t "\t")'
 
 # Status completions (tries to pick up --team from current command line)
-complete -c linear-cli -l status -s s -x -a '(linear-cli _complete --type statuses 2>/dev/null | string replace \t "\t")'
+complete -c linear -l status -s s -x -a '(linear _complete --type statuses 2>/dev/null | string replace \t "\t")'
 
 # Project completions
-complete -c linear-cli -l project -x -a '(linear-cli _complete --type projects 2>/dev/null | string replace \t "\t")'
+complete -c linear -l project -x -a '(linear _complete --type projects 2>/dev/null | string replace \t "\t")'
 
 # Label completions
-complete -c linear-cli -l label -s l -x -a '(linear-cli _complete --type labels 2>/dev/null | string replace \t "\t")'
+complete -c linear -l label -s l -x -a '(linear _complete --type labels 2>/dev/null | string replace \t "\t")'
 
 # User completions
-complete -c linear-cli -l assignee -x -a '(linear-cli _complete --type users 2>/dev/null | string replace \t "\t")'
-complete -c linear-cli -l user -x -a '(linear-cli _complete --type users 2>/dev/null | string replace \t "\t")'
+complete -c linear -l assignee -x -a '(linear _complete --type users 2>/dev/null | string replace \t "\t")'
+complete -c linear -l user -x -a '(linear _complete --type users 2>/dev/null | string replace \t "\t")'
 
 # Issue ID completions for subcommands that take an issue
 for subcmd in get update start close done archive unarchive comment link assign move transfer open
-    complete -c linear-cli -n "__fish_seen_subcommand_from $subcmd" -x -a '(linear-cli _complete --type issues 2>/dev/null | string replace \t "\t")'
+    complete -c linear -n "__fish_seen_subcommand_from $subcmd" -x -a '(linear _complete --type issues 2>/dev/null | string replace \t "\t")'
 end
 "#;
 
-const POWERSHELL_DYNAMIC_COMPLETIONS: &str = r#"# Dynamic completions for linear-cli (PowerShell)
+const POWERSHELL_DYNAMIC_COMPLETIONS: &str = r#"# Dynamic completions for linear (PowerShell)
 # Source this file or add to your $PROFILE:
-#   linear-cli completions dynamic powershell | Invoke-Expression
+#   linear completions dynamic powershell | Invoke-Expression
 
-Register-ArgumentCompleter -CommandName linear-cli -ScriptBlock {
+Register-ArgumentCompleter -CommandName linear -ScriptBlock {
     param($commandName, $wordToComplete, $cursorPosition)
 
     $tokens = $wordToComplete -split '\s+'
@@ -2389,7 +2389,7 @@ Register-ArgumentCompleter -CommandName linear-cli -ScriptBlock {
 
     if ($type) {
         $teamArg = if ($teamVal -and $type -eq 'statuses') { "--team $teamVal" } else { '' }
-        $results = linear-cli _complete --type $type --prefix $current $teamArg 2>$null
+        $results = linear _complete --type $type --prefix $current $teamArg 2>$null
         if ($results) {
             $results | ForEach-Object {
                 $parts = $_ -split '\t', 2

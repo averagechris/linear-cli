@@ -448,7 +448,7 @@ async fn create_webhook(
             }
         }
     } else {
-        anyhow::bail!("Failed to create webhook. Webhooks require admin scope — try re-authenticating with: linear-cli auth oauth");
+        anyhow::bail!("Failed to create webhook. Webhooks require admin scope — try re-authenticating with: linear auth oauth");
     }
 
     Ok(())
@@ -692,7 +692,7 @@ async fn listen(
         webhook_input["secret"] = json!(s);
     }
 
-    webhook_input["label"] = json!("linear-cli-listen");
+    webhook_input["label"] = json!("linear-listen");
 
     let create_mutation = r#"
         mutation($input: WebhookCreateInput!) {
@@ -709,7 +709,7 @@ async fn listen(
 
     if result["data"]["webhookCreate"]["success"].as_bool() != Some(true) {
         anyhow::bail!(
-            "Failed to create temporary webhook. Webhooks require admin scope — try re-authenticating with: linear-cli auth oauth"
+            "Failed to create temporary webhook. Webhooks require admin scope — try re-authenticating with: linear auth oauth"
         );
     }
 

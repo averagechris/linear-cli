@@ -31,7 +31,7 @@ pub async fn handle(check: bool, output: &OutputOptions, _agent_opts: AgentOptio
 
     if !check && !output.is_json() && !output.has_template() && status.update_available {
         println!(
-            "A newer linear-cli release tag is available on SourceHut ({} -> {}).",
+            "A newer linear release tag is available on SourceHut ({} -> {}).",
             status.current_version,
             status.latest_version.as_deref().unwrap_or("unknown")
         );
@@ -114,7 +114,7 @@ fn print_update_status(output: &OutputOptions, status: &UpdateStatus) -> Result<
     match status.latest_version.as_deref() {
         Some(latest) if status.update_available => {
             println!(
-                "linear-cli {} is installed. {} is available on SourceHut.",
+                "linear {} is installed. {} is available on SourceHut.",
                 status.current_version, latest
             );
             println!(
@@ -124,13 +124,13 @@ fn print_update_status(output: &OutputOptions, status: &UpdateStatus) -> Result<
         }
         Some(latest) => {
             println!(
-                "linear-cli {} is up to date with SourceHut tag {}.",
+                "linear {} is up to date with SourceHut tag {}.",
                 status.current_version, latest
             );
         }
         None => {
             println!(
-                "linear-cli {} is installed. No semver release tags were found on {}.",
+                "linear {} is installed. No semver release tags were found on {}.",
                 status.current_version, status.release_url
             );
         }
