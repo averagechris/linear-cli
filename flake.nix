@@ -102,22 +102,32 @@
                     fi
 
                     repo_root="$(git rev-parse --show-toplevel)"
-                    version="$(${pkgs.python3}/bin/python3 - <<'PY' "$repo_root/Cargo.toml"
-          import pathlib
-          import sys
-          import tomllib
 
+                    if [[ -d .jj ]]; then
+                      target_commit="$(jj log -r @ --no-pager --color=never --no-graph -T 'commit_id ++ "\n"' | tr -d '\r\n')"
+                      if [[ -z "$target_commit" ]]; then
+                        printf 'failed to resolve current jj commit for tagging\n' >&2
+                        exit 1
+                      fi
+                    else
+                      if ! git diff --quiet || ! git diff --cached --quiet; then
+                        printf 'working tree must be clean before tagging\n' >&2
+                        exit 1
+                      fi
+
+                      target_commit="$(git rev-parse HEAD)"
+                    fi
+
+                    version="$(${pkgs.python3}/bin/python3 -c '
+          import pathlib, sys, tomllib
           path = pathlib.Path(sys.argv[1])
-          with path.open('rb') as f:
+          with path.open("rb") as f:
               data = tomllib.load(f)
-
-          version = data.get('package', {}).get('version')
+          version = data.get("package", {}).get("version")
           if not isinstance(version, str) or not version:
-              raise SystemExit('Cargo.toml is missing package.version')
-
+              raise SystemExit("Cargo.toml is missing package.version")
           print(version)
-          PY
-                    )"
+          ' "$repo_root/Cargo.toml")"
 
                     if [[ "$version" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
                       tag="v''${version#v}"
@@ -126,23 +136,29 @@
                       exit 1
                     fi
 
-                    if ! git diff --quiet || ! git diff --cached --quiet; then
-                      printf 'working tree must be clean before tagging %s\n' "$tag" >&2
-                      exit 1
-                    fi
-
                     if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
                       printf 'local tag already exists: %s\n' "$tag" >&2
                       exit 1
                     fi
 
-                    if [[ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ]]; then
-                      printf 'remote tag already exists on origin: %s\n' "$tag" >&2
-                      exit 1
-                    fi
+          if [[ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ]]; then
+            printf 'remote tag already exists on origin: %s\n' "$tag" >&2
+            exit 1
+          fi
 
-                    git tag -a "$tag" -m "Release $tag"
-                    git push origin "refs/tags/$tag"
+          tag_command="git tag -a \"$tag\" \"$target_commit\" -m \"Release $tag\""
+          push_command="git push origin \"refs/tags/$tag\""
+
+          if ! git tag -a "$tag" "$target_commit" -m "Release $tag"; then
+            printf 'failed to create %s automatically. this usually means local git signing needs manual approval or repair.\n' "$tag" >&2
+            printf 'run these commands manually after fixing signing:\n  %s\n  %s\n' "$tag_command" "$push_command" >&2
+            exit 1
+          fi
+
+          if ! git push origin "refs/tags/$tag"; then
+            printf 'failed to push %s automatically. run this manually:\n  %s\n' "$tag" "$push_command" >&2
+            exit 1
+          fi
         '';
         mkRepoScript = {
           name,
@@ -230,6 +246,7 @@
           text = releaseTagScript;
           runtimeInputs = with pkgs; [
             git
+            jujutsu
             python3
           ];
         };

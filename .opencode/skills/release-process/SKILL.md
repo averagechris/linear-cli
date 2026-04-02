@@ -56,6 +56,13 @@ nix run .#ci-test
 nix run .#ci-clippy
 ```
 
+### Release friction notes
+
+- `nix run .#release-tag` tags the current `@` commit in jj repos and `HEAD` in plain git repos. Commit the version bump first so the helper can tag a real release commit.
+- The helper reads `Cargo.toml` directly, so if `package.version` changes, refresh `Cargo.lock` by running the validation commands before tagging.
+- In plain git repos, the helper still requires a clean working tree before tagging.
+- If local git tag signing blocks automation, stop and show the user the exact fallback commands printed by `nix run .#release-tag`; the user must finish those manually because signing approval/repair is local-machine state.
+
 ## 6. Publish the tag
 
 ```bash
