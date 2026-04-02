@@ -11,9 +11,7 @@ Use this skill when cutting a new release for this hardened fork.
 ## 1. Find the last release tag
 
 ```bash
-jj log -r 'tags()' --no-pager --color=never --no-graph -T 'ref_names ++ "\n"'
-# or, if needed:
-git tag --sort=-version:refname
+jj tag list --no-pager --color=never
 ```
 
 Use the latest `vX.Y.Z` tag as the release baseline.
@@ -21,9 +19,7 @@ Use the latest `vX.Y.Z` tag as the release baseline.
 ## 2. Review commits since that tag
 
 ```bash
-jj log -r '<last-tag>::@-' --no-pager --color=never --no-graph -T 'description.first_line() ++ "\n"'
-# or:
-git log --format=%s <last-tag>..HEAD
+jj log -r '<last-tag>::@-' --no-pager --color=never --no-graph
 ```
 
 Commit messages in this fork should follow Conventional Commits.
@@ -58,28 +54,34 @@ nix run .#ci-clippy
 
 ### Release friction notes
 
-- `nix run .#release-tag` tags the current `@` commit in jj repos and `HEAD` in plain git repos. Commit the version bump first so the helper can tag a real release commit.
+- `nix run .#release-tag` creates an annotated tag from `Cargo.toml`'s version but does **not** push it. The agent should present the push command for the user to run.
 - The helper reads `Cargo.toml` directly, so if `package.version` changes, refresh `Cargo.lock` by running the validation commands before tagging.
-- In plain git repos, the helper still requires a clean working tree before tagging.
 - If local git tag signing blocks automation, stop and show the user the exact fallback commands printed by `nix run .#release-tag`; the user must finish those manually because signing approval/repair is local-machine state.
 - In jj repos, if you are sitting on a fresh empty child change, tag the intended release revision explicitly instead of trusting `@`. Common fallback:
 
 ```bash
-jj tag set --revision @- vX.Y.Z
-git push origin vX.Y.Z
+jj tag create vX.Y.Z --revision @-
 ```
 
-Use `@-` only when the release commit is the parent of your current empty working-copy change; otherwise tag the actual release revision explicitly.
+Use `@-` only when the release commit is the parent of your current empty working-copy change; otherwise specify the actual release revision.
 
-## 6. Publish the tag
+## 6. Create the tag
 
 ```bash
 nix run .#release-tag
 ```
 
-This creates and pushes an annotated SourceHut tag matching `Cargo.toml`'s version, normalized to `vX.Y.Z`.
+This creates an annotated tag matching `Cargo.toml`'s version, normalized to `vX.Y.Z`.
 
-## 7. Suggested prompts
+## 7. Push the tag
+
+The agent should **not** push automatically. Present the command for the user to run:
+
+```bash
+jj git push --remote origin --tag-pattern 'vX.Y.Z'
+```
+
+## 8. Suggested prompts
 
 - "Review commits since the last tag and tell me the next release version"
 - "Choose the next semver bump from Conventional Commit messages"

@@ -2066,3 +2066,109 @@ fn test_yes_flag_works_with_subcommand() {
         "--yes flag should not interfere with subcommand parsing"
     );
 }
+
+// === New features: implicit current-issue, describe, open --app ===
+
+#[test]
+fn test_issues_describe_help() {
+    let (code, stdout, _stderr) = run_cli(&["issues", "describe", "--help"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("jj") || stdout.contains("commit"),
+        "describe help should mention jj or commit messages"
+    );
+}
+
+#[test]
+fn test_issues_describe_in_help() {
+    let (code, stdout, _stderr) = run_cli(&["issues", "--help"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("describe"),
+        "issues help should list describe subcommand"
+    );
+}
+
+#[test]
+fn test_issues_open_app_flag() {
+    let (code, stdout, _stderr) = run_cli(&["issues", "open", "--help"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("--app"),
+        "issues open should have --app flag"
+    );
+    assert!(
+        stdout.contains("Linear desktop app") || stdout.contains("Linear app"),
+        "issues open --app should describe opening in the desktop app"
+    );
+}
+
+#[test]
+fn test_issues_open_id_optional() {
+    let (code, stdout, _stderr) = run_cli(&["issues", "open", "--help"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("current branch") || stdout.contains("omit"),
+        "issues open help should mention current branch fallback"
+    );
+}
+
+#[test]
+fn test_issues_link_id_optional() {
+    let (code, stdout, _stderr) = run_cli(&["issues", "link", "--help"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("current branch") || stdout.contains("omit"),
+        "issues link help should mention current branch fallback"
+    );
+}
+
+#[test]
+fn test_issues_comment_id_optional() {
+    let (code, stdout, _stderr) = run_cli(&["issues", "comment", "--help"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("current branch") || stdout.contains("omit"),
+        "issues comment help should mention current branch fallback"
+    );
+}
+
+#[test]
+fn test_issues_start_id_optional() {
+    let (code, stdout, _stderr) = run_cli(&["issues", "start", "--help"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("interactively") || stdout.contains("backlog") || stdout.contains("Omit"),
+        "issues start help should mention interactive picker when no ID given"
+    );
+}
+
+#[test]
+fn test_issues_stop_id_optional() {
+    let (code, stdout, _stderr) = run_cli(&["issues", "stop", "--help"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("current branch") || stdout.contains("omit"),
+        "issues stop help should mention current branch fallback"
+    );
+}
+
+#[test]
+fn test_issues_close_id_optional() {
+    let (code, stdout, _stderr) = run_cli(&["issues", "close", "--help"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("current branch") || stdout.contains("omit"),
+        "issues close help should mention current branch fallback"
+    );
+}
+
+#[test]
+fn test_issues_get_id_optional() {
+    let (code, stdout, _stderr) = run_cli(&["issues", "get", "--help"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("current branch") || stdout.contains("Omit"),
+        "issues get help should mention current branch fallback"
+    );
+}

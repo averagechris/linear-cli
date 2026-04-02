@@ -18,7 +18,10 @@ use crate::output::{
 use crate::pagination::{paginate_nodes, stream_nodes};
 use crate::priority::priority_to_string;
 use crate::text::truncate;
-use crate::vcs::{generate_branch_name, git_branch_exists, run_git_command, validate_branch_name};
+use crate::vcs::{
+    detect_current_issue, generate_branch_name, git_branch_exists, resolve_issue_id,
+    run_git_command, validate_branch_name,
+};
 use crate::AgentOptions;
 
 use super::templates;
@@ -72,12 +75,13 @@ pub enum IssueCommands {
     /// Get issue details
     #[command(after_help = r#"EXAMPLES:
     linear issues get LIN-123                  # View issue by identifier
+    linear i get                               # View current branch's issue
     linear i get abc123-uuid                   # View issue by ID
     linear i get LIN-1 LIN-2 LIN-3             # Get multiple issues
     linear i get LIN-123 --output json         # Output as JSON
     echo "LIN-123" | linear i get -            # Read ID from stdin (piping)"#)]
     Get {
-        /// Issue ID(s) or identifier(s). Use "-" to read from stdin.
+        /// Issue ID(s) or identifier(s). Omit to use current branch. Use "-" to read from stdin.
         ids: Vec<String>,
 
         /// Show recent activity history
@@ -88,10 +92,17 @@ pub enum IssueCommands {
         #[arg(long)]
         comments: bool,
     },
-    /// Open issue in browser
+    /// Open issue in browser or Linear.app
+    #[command(after_help = r#"EXAMPLES:
+    linear issues open LIN-123                 # Open in browser
+    linear i open                              # Open current branch's issue
+    linear i open LIN-123 --app               # Open in Linear desktop app"#)]
     Open {
-        /// Issue ID or identifier
-        id: String,
+        /// Issue ID or identifier (omit to use current branch)
+        id: Option<String>,
+        /// Open in Linear desktop app instead of browser
+        #[arg(short, long)]
+        app: bool,
     },
     /// Create a new issue
     #[command(after_help = r#"EXAMPLES:
@@ -197,11 +208,12 @@ pub enum IssueCommands {
     /// Start working on an issue (set to In Progress and assign to me)
     #[command(after_help = r#"EXAMPLES:
     linear issues start LIN-123                # Start working on issue
+    linear i start                             # Pick from your unstarted issues
     linear i start LIN-123 --checkout          # Start and checkout git branch
     linear i start LIN-123 -c -b feature/fix   # Start with custom branch"#)]
     Start {
-        /// Issue ID or identifier (e.g., "LIN-123")
-        id: String,
+        /// Issue ID or identifier. Omit to pick interactively from your backlog.
+        id: Option<String>,
         /// Checkout a git branch for the issue
         #[arg(short, long)]
         checkout: bool,
@@ -212,19 +224,23 @@ pub enum IssueCommands {
     /// Stop working on an issue (return to backlog state)
     #[command(after_help = r#"EXAMPLES:
     linear issues stop LIN-123                 # Stop working on issue
+    linear i stop                              # Stop current branch's issue
     linear i stop LIN-123 --unassign           # Stop and unassign"#)]
     Stop {
-        /// Issue ID or identifier (e.g., "LIN-123")
-        id: String,
+        /// Issue ID or identifier (omit to use current branch)
+        id: Option<String>,
         /// Unassign the issue
         #[arg(short, long)]
         unassign: bool,
     },
     /// Close an issue (mark as Done)
     #[command(alias = "done")]
+    #[command(after_help = r#"EXAMPLES:
+    linear issues close LIN-123                # Close specific issue
+    linear i close                             # Close current branch's issue"#)]
     Close {
-        /// Issue ID or identifier
-        id: String,
+        /// Issue ID or identifier (omit to use current branch)
+        id: Option<String>,
     },
     /// Archive an issue
     Archive {
@@ -237,17 +253,32 @@ pub enum IssueCommands {
         id: String,
     },
     /// Add a comment to an issue
+    #[command(after_help = r#"EXAMPLES:
+    linear issues comment LIN-123 -b "text"    # Comment on specific issue
+    linear i comment -b "text"                 # Comment on current branch's issue"#)]
     Comment {
-        /// Issue ID or identifier
-        id: String,
+        /// Issue ID or identifier (omit to use current branch)
+        id: Option<String>,
         /// Comment body (markdown). Use "-" to read from stdin.
         #[arg(short, long)]
         body: String,
     },
     /// Print the issue URL
+    #[command(after_help = r#"EXAMPLES:
+    linear issues link LIN-123                 # Print issue URL
+    linear i link                              # Print current branch's issue URL"#)]
     Link {
-        /// Issue ID or identifier
-        id: String,
+        /// Issue ID or identifier (omit to use current branch)
+        id: Option<String>,
+    },
+    /// Output issue description text for jj/git commit messages
+    #[command(after_help = r#"EXAMPLES:
+    linear i describe LIN-123                  # Print description for commit
+    jj describe "$(linear i describe LIN-123)" # Use with jj
+    linear i describe                          # Describe current branch's issue"#)]
+    Describe {
+        /// Issue ID or identifier (omit to use current branch)
+        id: Option<String>,
     },
     /// Assign an issue to a user (shortcut for update --assignee)
     Assign {
@@ -323,15 +354,18 @@ pub async fn handle(
             comments,
         } => {
             // Support reading from stdin if no IDs provided or if "-" is passed
-            let final_ids = read_ids_from_stdin(ids);
+            let mut final_ids = read_ids_from_stdin(ids);
+            // Fall back to current branch if no IDs given
             if final_ids.is_empty() {
-                anyhow::bail!(
-                    "No issue IDs provided. Provide IDs as arguments or pipe them via stdin."
-                );
+                let current = detect_current_issue()?;
+                final_ids.push(current);
             }
             get_issues(&final_ids, output, history, comments).await
         }
-        IssueCommands::Open { id } => open_issue(&id).await,
+        IssueCommands::Open { id, app } => {
+            let id = resolve_issue_id(id)?;
+            open_issue(&id, app).await
+        }
         IssueCommands::Create {
             title,
             team,
@@ -480,13 +514,35 @@ pub async fn handle(
             id,
             checkout,
             branch,
-        } => start_issue(&id, checkout, branch, agent_opts).await,
-        IssueCommands::Stop { id, unassign } => stop_issue(&id, unassign, agent_opts).await,
-        IssueCommands::Close { id } => close_issue(&id).await,
+        } => {
+            let id = match id {
+                Some(id) => id,
+                None => pick_issue_interactively().await?,
+            };
+            start_issue(&id, checkout, branch, agent_opts).await
+        }
+        IssueCommands::Stop { id, unassign } => {
+            let id = resolve_issue_id(id)?;
+            stop_issue(&id, unassign, agent_opts).await
+        }
+        IssueCommands::Close { id } => {
+            let id = resolve_issue_id(id)?;
+            close_issue(&id).await
+        }
         IssueCommands::Archive { id } => archive_issue(&id, true).await,
         IssueCommands::Unarchive { id } => archive_issue(&id, false).await,
-        IssueCommands::Comment { id, body } => comment_issue(&id, &body).await,
-        IssueCommands::Link { id } => link_issue(&id).await,
+        IssueCommands::Comment { id, body } => {
+            let id = resolve_issue_id(id)?;
+            comment_issue(&id, &body).await
+        }
+        IssueCommands::Link { id } => {
+            let id = resolve_issue_id(id)?;
+            link_issue(&id).await
+        }
+        IssueCommands::Describe { id } => {
+            let id = resolve_issue_id(id)?;
+            describe_issue(&id).await
+        }
         IssueCommands::Assign { id, user } => assign_issue(&id, user).await,
         IssueCommands::Move { id, project } => move_issue(&id, &project).await,
         IssueCommands::Transfer { id, team } => transfer_issue(&id, &team).await,
@@ -840,7 +896,7 @@ async fn get_issues(
     Ok(())
 }
 
-async fn open_issue(id: &str) -> Result<()> {
+async fn open_issue(id: &str, app: bool) -> Result<()> {
     let client = LinearClient::new()?;
     let query = r#"
         query($id: String!) {
@@ -863,8 +919,16 @@ async fn open_issue(id: &str) -> Result<()> {
     }
 
     let identifier = issue["identifier"].as_str().unwrap_or(id);
-    println!("Opening {} in browser...", identifier);
-    open::that(url)?;
+
+    if app {
+        // Convert https://linear.app/... to linear://...
+        let app_url = url.replacen("https://linear.app/", "linear://", 1);
+        println!("Opening {} in Linear app...", identifier);
+        open::that(&app_url)?;
+    } else {
+        println!("Opening {} in browser...", identifier);
+        open::that(url)?;
+    }
     Ok(())
 }
 
@@ -2230,6 +2294,95 @@ async fn transfer_issue(id: &str, team: &str) -> Result<()> {
     } else {
         anyhow::bail!("Failed to transfer issue: {}", id);
     }
+
+    Ok(())
+}
+
+/// Interactive picker: fetch the current user's unstarted issues and let them choose one.
+async fn pick_issue_interactively() -> Result<String> {
+    use dialoguer::{console::Term, Select};
+
+    let client = LinearClient::new()?;
+
+    // Fetch unstarted issues assigned to the current user (or unassigned on their teams)
+    let query = r#"
+        query {
+            viewer {
+                assignedIssues(
+                    first: 50,
+                    filter: { state: { type: { in: ["backlog", "unstarted"] } } }
+                ) {
+                    nodes {
+                        identifier
+                        title
+                        priority
+                        state { name }
+                    }
+                }
+            }
+        }
+    "#;
+
+    let result = client.query(query, None).await?;
+    let empty = vec![];
+    let issues = result["data"]["viewer"]["assignedIssues"]["nodes"]
+        .as_array()
+        .unwrap_or(&empty);
+
+    if issues.is_empty() {
+        anyhow::bail!("No unstarted issues assigned to you. Create one or provide an issue ID.");
+    }
+
+    let items: Vec<String> = issues
+        .iter()
+        .map(|issue| {
+            let id = issue["identifier"].as_str().unwrap_or("");
+            let title = issue["title"].as_str().unwrap_or("");
+            let state = issue["state"]["name"].as_str().unwrap_or("");
+            format!("{} {} [{}]", id, title, state)
+        })
+        .collect();
+
+    let selection = Select::new()
+        .with_prompt("Pick an issue to start")
+        .items(&items)
+        .default(0)
+        .interact_on(&Term::stderr())?;
+
+    let chosen = issues[selection]["identifier"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("Could not read identifier from selected issue"))?;
+
+    Ok(chosen.to_string())
+}
+
+/// Output issue details formatted for use in commit messages / jj describe.
+///
+/// Prints the issue title on the first line, followed by a blank line and
+/// a `Linear-issue: IDENTIFIER` trailer suitable for jj workflows.
+async fn describe_issue(id: &str) -> Result<()> {
+    let client = LinearClient::new()?;
+    let query = r#"
+        query($id: String!) {
+            issue(id: $id) {
+                identifier
+                title
+            }
+        }
+    "#;
+    let result = client.query(query, Some(json!({ "id": id }))).await?;
+    let issue = &result["data"]["issue"];
+
+    if issue.is_null() {
+        anyhow::bail!("Issue not found: {}", id);
+    }
+
+    let identifier = issue["identifier"].as_str().unwrap_or(id);
+    let title = issue["title"].as_str().unwrap_or("");
+
+    println!("{}", title);
+    println!();
+    println!("Linear-issue: {}", identifier);
 
     Ok(())
 }
