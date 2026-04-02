@@ -62,6 +62,14 @@ nix run .#ci-clippy
 - The helper reads `Cargo.toml` directly, so if `package.version` changes, refresh `Cargo.lock` by running the validation commands before tagging.
 - In plain git repos, the helper still requires a clean working tree before tagging.
 - If local git tag signing blocks automation, stop and show the user the exact fallback commands printed by `nix run .#release-tag`; the user must finish those manually because signing approval/repair is local-machine state.
+- In jj repos, if you are sitting on a fresh empty child change, tag the intended release revision explicitly instead of trusting `@`. Common fallback:
+
+```bash
+jj tag set --revision @- vX.Y.Z
+git push origin vX.Y.Z
+```
+
+Use `@-` only when the release commit is the parent of your current empty working-copy change; otherwise tag the actual release revision explicitly.
 
 ## 6. Publish the tag
 
