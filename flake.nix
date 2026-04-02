@@ -39,6 +39,22 @@
           exec jj git fetch --remote upstream "$@"
         '';
         linkOpencodeSkillsScript = ''
+          usage() {
+            printf 'Usage: %s [--global | --project]\n\n' "$0"
+            printf '  --project  Symlink skills into .opencode/skills/ in the repo root (default)\n'
+            printf '  --global   Symlink skills into ~/.config/opencode/skills/\n'
+          }
+
+          mode="project"
+          while [[ $# -gt 0 ]]; do
+            case "$1" in
+              --global)  mode="global"; shift ;;
+              --project) mode="project"; shift ;;
+              -h|--help) usage; exit 0 ;;
+              *) printf 'Unknown argument: %s\n' "$1" >&2; usage >&2; exit 1 ;;
+            esac
+          done
+
           find_repo_root() {
             local dir
             dir="''${PWD}"
@@ -58,11 +74,17 @@
 
           repo_root="$(find_repo_root)"
           source_dir="''${repo_root}/skills"
-          target_dir="''${repo_root}/.opencode/skills"
+
+          if [[ "''${mode}" == "global" ]]; then
+            target_dir="''${XDG_CONFIG_HOME:-''${HOME}/.config}/opencode/skills"
+          else
+            target_dir="''${repo_root}/.opencode/skills"
+          fi
 
           mkdir -p "''${target_dir}"
 
           shopt -s nullglob
+          linked=0
           for skill_dir in "''${source_dir}"/*; do
             [[ -d "''${skill_dir}" && -f "''${skill_dir}/SKILL.md" ]] || continue
 
@@ -77,7 +99,10 @@
             fi
 
             ln -s "''${skill_dir}" "''${target_path}"
+            linked=$((linked + 1))
           done
+
+          printf 'Linked %d skills into %s\n' "''${linked}" "''${target_dir}"
         '';
         ciFmtScript = ''
           cargo fmt --all --check
@@ -341,6 +366,19 @@
       }
     )
     // {
+      lib.opencodeSkills = let
+        skillsDir = ./skills;
+        entries = builtins.readDir skillsDir;
+        isSkill = name: type:
+          type == "directory" && builtins.pathExists (skillsDir + "/${name}/SKILL.md");
+        skillNames = builtins.filter (name: isSkill name entries.${name}) (builtins.attrNames entries);
+      in
+        builtins.listToAttrs (map (name: {
+            inherit name;
+            value = builtins.readFile (skillsDir + "/${name}/SKILL.md");
+          })
+          skillNames);
+
       overlays.default = final: prev: {
         inherit (self.packages.${prev.system}) linear-cli;
       };
