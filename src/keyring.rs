@@ -9,6 +9,32 @@ use anyhow::{Context, Result};
 
 const SERVICE_NAME: &str = "linear-cli";
 
+fn verify_stored_secret(
+    service_name: &str,
+    profile: &str,
+    expected: &str,
+    secret_kind: &str,
+) -> Result<()> {
+    let verify_entry = keyring::Entry::new(service_name, profile)
+        .context("Failed to create keyring entry for verification")?;
+
+    match verify_entry.get_password() {
+        Ok(actual) if actual == expected => Ok(()),
+        Ok(_) => anyhow::bail!(
+            "{} was written to the keyring but could not be read back unchanged",
+            secret_kind
+        ),
+        Err(keyring::Error::NoEntry) => anyhow::bail!(
+            "{} could not be read back from the keyring after writing it",
+            secret_kind
+        ),
+        Err(e) => Err(e).context(format!(
+            "Failed to verify {} after writing it to the keyring",
+            secret_kind
+        )),
+    }
+}
+
 /// Get an API key from the keyring for a profile.
 /// Returns Ok(None) if no key is stored, Ok(Some(key)) if found.
 pub fn get_key(profile: &str) -> Result<Option<String>> {
@@ -31,6 +57,8 @@ pub fn set_key(profile: &str, api_key: &str) -> Result<()> {
         .set_password(api_key)
         .context("Failed to store API key in keyring")?;
 
+    verify_stored_secret(SERVICE_NAME, profile, api_key, "API key")?;
+
     Ok(())
 }
 
@@ -49,14 +77,22 @@ pub fn delete_key(profile: &str) -> Result<()> {
 
 /// Check if keyring is available on this system.
 pub fn is_available() -> bool {
-    // Try to create an entry and check if we can access it
-    match keyring::Entry::new(SERVICE_NAME, "__test__") {
+    let probe_account = format!("__linear_cli_probe_{}__", std::process::id());
+    let probe_secret = format!("probe-{}", std::process::id());
+
+    match keyring::Entry::new(SERVICE_NAME, &probe_account) {
         Ok(entry) => {
-            // Try a non-destructive operation
-            match entry.get_password() {
-                Err(keyring::Error::NoStorageAccess(_)) => false,
-                _ => true, // NoEntry or Ok means storage is accessible
+            if entry.set_password(&probe_secret).is_err() {
+                return false;
             }
+
+            let verified = keyring::Entry::new(SERVICE_NAME, &probe_account)
+                .ok()
+                .and_then(|verify_entry| verify_entry.get_password().ok())
+                .map(|actual| actual == probe_secret)
+                .unwrap_or(false);
+            let _ = entry.delete_credential();
+            verified
         }
         Err(_) => false,
     }
@@ -83,6 +119,9 @@ pub fn set_oauth_tokens(profile: &str, json: &str) -> Result<()> {
     entry
         .set_password(json)
         .context("Failed to store OAuth tokens in keyring")?;
+
+    verify_stored_secret(OAUTH_SERVICE_NAME, profile, json, "OAuth tokens")?;
+
     Ok(())
 }
 

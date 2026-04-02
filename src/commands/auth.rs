@@ -190,12 +190,31 @@ async fn status(validate: bool, output: &OutputOptions) -> Result<()> {
         .as_ref()
         .and_then(|p| config::get_oauth_config(p).ok())
         .flatten();
-    let auth_type = if oauth_configured { "oauth" } else { "api_key" };
+    let oauth_usable = oauth_config
+        .as_ref()
+        .map(|oauth| !oauth.access_token.is_empty())
+        .unwrap_or(false);
+    let auth_type = if oauth_usable {
+        "oauth"
+    } else if oauth_configured {
+        "oauth_metadata_only"
+    } else if key_override || api_key_keyring_configured {
+        "api_key"
+    } else {
+        "none"
+    };
     let configured = config_file_configured || keyring_configured || oauth_configured;
+    let oauth_warning = if oauth_configured && !oauth_usable {
+        Some(
+            "OAuth metadata exists for this profile, but the OAuth token is missing from the keyring. Re-run 'linear-cli auth oauth' or clear stale auth with 'linear-cli auth logout --force'.",
+        )
+    } else {
+        None
+    };
 
     let mut validated = None;
     if validate {
-        if oauth_configured {
+        if oauth_usable {
             // Validate OAuth by querying the viewer with the access token
             if let Some(ref oauth) = oauth_config {
                 let client = LinearClient::with_api_key(format!("Bearer {}", oauth.access_token));
@@ -239,6 +258,7 @@ async fn status(validate: bool, output: &OutputOptions) -> Result<()> {
                 "api_key_override": key_override,
                 "profile_override": profile_override,
                 "validated": validated,
+                "warning": oauth_warning,
             }),
             output,
         )?;
@@ -284,6 +304,9 @@ async fn status(validate: bool, output: &OutputOptions) -> Result<()> {
         "Profile override: {}",
         profile_override.unwrap_or_else(|| "none".to_string())
     );
+    if let Some(warning) = oauth_warning {
+        println!("Warning: {}", warning);
+    }
 
     Ok(())
 }

@@ -39,6 +39,13 @@ pub async fn run(output: &OutputOptions, check_api: bool, fix: bool) -> Result<(
         .and_then(|p| config::get_oauth_metadata(p).ok())
         .flatten()
         .is_some();
+    let oauth_warning = if oauth_configured && !oauth_keyring_configured {
+        Some(
+            "OAuth metadata exists for this profile, but the OAuth token is missing from the keyring. Re-run 'linear-cli auth oauth' or clear stale auth with 'linear-cli auth logout --force'.",
+        )
+    } else {
+        None
+    };
 
     let configured = config_file_configured
         || api_key_keyring_configured
@@ -164,6 +171,7 @@ pub async fn run(output: &OutputOptions, check_api: bool, fix: bool) -> Result<(
                 "cache_ttl_seconds": output.cache.effective_ttl_seconds(),
                 "api_ok": api_ok,
                 "api_error": api_error,
+                "warning": oauth_warning,
             }),
             output,
         )?;
@@ -199,6 +207,9 @@ pub async fn run(output: &OutputOptions, check_api: bool, fix: bool) -> Result<(
     );
     println!("Cache dir: {}", cache_dir.display());
     println!("Cache TTL: {}s", output.cache.effective_ttl_seconds());
+    if let Some(warning) = oauth_warning {
+        println!("Warning: {}", warning);
+    }
     if let Some(api_ok) = api_ok {
         println!("API check: {}", if api_ok { "ok" } else { "failed" });
         if let Some(err) = api_error {

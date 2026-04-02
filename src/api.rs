@@ -758,9 +758,27 @@ impl LinearClient {
     /// Resolve authentication from config (checks OAuth explicitly, then API key)
     fn resolve_auth() -> Result<AuthState> {
         let profile = config::current_profile().unwrap_or_else(|_| "default".to_string());
+        let oauth_metadata_present = config::get_oauth_metadata(&profile)
+            .ok()
+            .flatten()
+            .is_some();
+        let oauth_config = config::get_oauth_config(&profile).ok().flatten();
 
-        // Check for OAuth config explicitly (no Bearer prefix heuristic)
-        if let Ok(Some(oauth)) = config::get_oauth_config(&profile) {
+        Self::resolve_auth_for_profile(
+            &profile,
+            oauth_metadata_present,
+            oauth_config,
+            config::get_api_key(),
+        )
+    }
+
+    fn resolve_auth_for_profile(
+        profile: &str,
+        oauth_metadata_present: bool,
+        oauth_config: Option<config::OAuthConfig>,
+        api_key_result: Result<String>,
+    ) -> Result<AuthState> {
+        if let Some(oauth) = oauth_config {
             if !oauth.access_token.is_empty() {
                 // If token has a refresh_token or isn't expired, use OAuth
                 let is_expired = oauth
@@ -774,16 +792,29 @@ impl LinearClient {
                         refresh_token: oauth.refresh_token,
                         client_id: oauth.client_id,
                         expires_at: oauth.expires_at,
-                        profile,
+                        profile: profile.to_string(),
                     });
                 }
-                // OAuth expired without refresh token — fall through to API key
+
+                return api_key_result.map(AuthState::ApiKey).or_else(|_| {
+                    anyhow::bail!(
+                        "OAuth token for workspace '{}' is expired and cannot be refreshed. Re-run 'linear-cli auth oauth' or clear stale OAuth metadata with 'linear-cli auth logout --force'.",
+                        profile
+                    )
+                });
             }
         }
 
-        // Fall back to standard API key
-        let api_key = config::get_api_key()?;
-        Ok(AuthState::ApiKey(api_key))
+        if oauth_metadata_present {
+            return api_key_result.map(AuthState::ApiKey).or_else(|_| {
+                anyhow::bail!(
+                    "OAuth is configured for workspace '{}' but the OAuth token is missing from the keyring. Re-run 'linear-cli auth oauth' or clear stale OAuth metadata with 'linear-cli auth logout --force'.",
+                    profile
+                )
+            });
+        }
+
+        Ok(AuthState::ApiKey(api_key_result?))
     }
 
     /// Ensure auth is fresh (refresh OAuth token if needed)
@@ -991,6 +1022,71 @@ mod tests {
         assert!(
             debug.contains("ApiKey"),
             "Debug output should contain variant name"
+        );
+    }
+
+    #[test]
+    fn test_resolve_auth_prefers_usable_oauth() {
+        let oauth = config::OAuthConfig {
+            client_id: "cid".to_string(),
+            access_token: "oauth_token".to_string(),
+            refresh_token: Some("refresh".to_string()),
+            expires_at: Some(chrono::Utc::now().timestamp() + 3600),
+            token_type: "Bearer".to_string(),
+            scopes: vec!["read".to_string(), "write".to_string()],
+        };
+
+        let state = LinearClient::resolve_auth_for_profile(
+            "default",
+            true,
+            Some(oauth),
+            Ok("lin_api_fallback".to_string()),
+        )
+        .expect("usable OAuth should be selected");
+
+        assert!(matches!(state, AuthState::OAuth { .. }));
+    }
+
+    #[test]
+    fn test_resolve_auth_reports_missing_oauth_keyring() {
+        let err = LinearClient::resolve_auth_for_profile(
+            "default",
+            true,
+            None,
+            Err(anyhow::anyhow!("No API key configured")),
+        )
+        .expect_err("missing OAuth keyring should produce targeted error");
+
+        assert!(
+            err.to_string()
+                .contains("OAuth token is missing from the keyring"),
+            "expected targeted missing-keyring message, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_resolve_auth_reports_expired_oauth_without_refresh() {
+        let oauth = config::OAuthConfig {
+            client_id: "cid".to_string(),
+            access_token: "oauth_token".to_string(),
+            refresh_token: None,
+            expires_at: Some(chrono::Utc::now().timestamp() - 60),
+            token_type: "Bearer".to_string(),
+            scopes: vec!["read".to_string(), "write".to_string()],
+        };
+
+        let err = LinearClient::resolve_auth_for_profile(
+            "default",
+            true,
+            Some(oauth),
+            Err(anyhow::anyhow!("No API key configured")),
+        )
+        .expect_err("expired OAuth without refresh token should produce targeted error");
+
+        assert!(
+            err.to_string()
+                .contains("OAuth token for workspace 'default' is expired"),
+            "expected targeted expiry message, got: {err}"
         );
     }
 }
