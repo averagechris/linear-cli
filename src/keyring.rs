@@ -144,8 +144,27 @@ mod tests {
     const TEST_KEY: &str = "lin_api_test_key_12345";
     const TEST_OAUTH_JSON: &str = r#"{"client_id":"client","access_token":"access","refresh_token":"refresh","expires_at":1234567890,"token_type":"Bearer","scopes":["read","write"]}"#;
 
+    fn should_run_keyring_tests() -> bool {
+        std::env::var_os("LINEAR_CLI_RUN_KEYRING_TESTS").is_some()
+    }
+
+    fn skip_unless_explicitly_enabled() -> bool {
+        if should_run_keyring_tests() {
+            return false;
+        }
+
+        eprintln!(
+            "Skipping keyring test - set LINEAR_CLI_RUN_KEYRING_TESTS=1 to run OS keyring integration tests"
+        );
+        true
+    }
+
     #[test]
     fn test_is_available() {
+        if skip_unless_explicitly_enabled() {
+            return;
+        }
+
         // Just check it doesn't panic - availability depends on system
         let available = is_available();
         println!("Keyring available: {}", available);
@@ -153,6 +172,10 @@ mod tests {
 
     #[test]
     fn test_set_get_delete_key() {
+        if skip_unless_explicitly_enabled() {
+            return;
+        }
+
         if !is_available() {
             eprintln!("Skipping keyring test - keyring not available");
             return;
@@ -187,6 +210,10 @@ mod tests {
 
     #[test]
     fn test_delete_nonexistent_key() {
+        if skip_unless_explicitly_enabled() {
+            return;
+        }
+
         if !is_available() {
             eprintln!("Skipping keyring test - keyring not available");
             return;
@@ -199,6 +226,10 @@ mod tests {
 
     #[test]
     fn test_overwrite_key() {
+        if skip_unless_explicitly_enabled() {
+            return;
+        }
+
         if !is_available() {
             eprintln!("Skipping keyring test - keyring not available");
             return;
@@ -233,6 +264,10 @@ mod tests {
 
     #[test]
     fn test_set_get_delete_oauth_tokens() {
+        if skip_unless_explicitly_enabled() {
+            return;
+        }
+
         if !is_available() {
             eprintln!("Skipping keyring test - keyring not available");
             return;
