@@ -142,6 +142,7 @@ mod tests {
 
     const TEST_PROFILE: &str = "linear-cli-test-profile";
     const TEST_KEY: &str = "lin_api_test_key_12345";
+    const TEST_OAUTH_JSON: &str = r#"{"client_id":"client","access_token":"access","refresh_token":"refresh","expires_at":1234567890,"token_type":"Bearer","scopes":["read","write"]}"#;
 
     #[test]
     fn test_is_available() {
@@ -228,5 +229,33 @@ mod tests {
 
         // Clean up
         let _ = delete_key(profile);
+    }
+
+    #[test]
+    fn test_set_get_delete_oauth_tokens() {
+        if !is_available() {
+            eprintln!("Skipping keyring test - keyring not available");
+            return;
+        }
+
+        let profile = "linear-cli-test-oauth-profile";
+        let _ = delete_oauth_tokens(profile);
+
+        if let Err(e) = set_oauth_tokens(profile, TEST_OAUTH_JSON) {
+            eprintln!("Skipping test - set_oauth_tokens failed: {}", e);
+            return;
+        }
+
+        match get_oauth_tokens(profile) {
+            Ok(Some(json)) => assert_eq!(json, TEST_OAUTH_JSON, "OAuth JSON should match"),
+            Ok(None) => {
+                eprintln!("Warning: OAuth tokens not found after set - keyring may not be persistent in this environment");
+            }
+            Err(e) => {
+                eprintln!("Warning: get_oauth_tokens failed: {}", e);
+            }
+        }
+
+        let _ = delete_oauth_tokens(profile);
     }
 }
