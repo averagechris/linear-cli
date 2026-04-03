@@ -1,4 +1,6 @@
 /target
+result
+result-*
 ._*
 .DS_Store
 

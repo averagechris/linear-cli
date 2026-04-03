@@ -208,6 +208,45 @@
               mainProgram = cliProgram;
             };
           });
+        homebrewArtifactPlatform =
+          if pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isAarch64
+          then "darwin-arm64"
+          else if pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isx86_64
+          then "darwin-amd64"
+          else null;
+        homebrewArtifactName =
+          if homebrewArtifactPlatform == null
+          then null
+          else "linear-cli-v${package.version}-${homebrewArtifactPlatform}.tar.gz";
+        homebrewArtifact =
+          if homebrewArtifactName == null
+          then null
+          else
+            pkgs.runCommand "linear-cli-homebrew-artifact-${package.version}" {
+              nativeBuildInputs = with pkgs; [
+                coreutils
+                gnutar
+                gzip
+              ];
+            } ''
+              mkdir -p "$out" "$TMPDIR/stage"
+              cp -p ${linear}/bin/${cliProgram} "$TMPDIR/stage/${cliProgram}"
+              chmod 0555 "$TMPDIR/stage/${cliProgram}"
+
+              tar \
+                --sort=name \
+                --format=ustar \
+                --mtime='@1' \
+                --owner=0 \
+                --group=0 \
+                --numeric-owner \
+                -C "$TMPDIR/stage" \
+                -cf - \
+                ${cliProgram} | gzip -n > "$out/${homebrewArtifactName}"
+
+              sha="$(sha256sum "$out/${homebrewArtifactName}" | cut -d ' ' -f1)"
+              printf '%s  %s\n' "$sha" "${homebrewArtifactName}" > "$out/${homebrewArtifactName}.sha256"
+            '';
         linear-runtime-tools = with pkgs;
           [
             git
@@ -305,72 +344,80 @@
             ci-fmt
             mkdir -p "$out"
           '';
-      in {
-        packages.default = linear;
-        packages.ci-clippy = ci-clippy;
-        packages.ci-fmt = ci-fmt;
-        packages.ci-test = ci-test;
-        packages.linear-bundled = linear-bundled;
-        packages.linear = linear;
-        packages.fetch-upstream = fetch-upstream;
-        packages.link-opencode-skills = link-opencode-skills;
-        packages.release-tag = release-tag;
-        packages.scripts = repo-scripts;
+      in
+        {
+          packages.default = linear;
+          packages.ci-clippy = ci-clippy;
+          packages.ci-fmt = ci-fmt;
+          packages.ci-test = ci-test;
+          packages.linear-bundled = linear-bundled;
+          packages.linear = linear;
+          packages.fetch-upstream = fetch-upstream;
+          packages.link-opencode-skills = link-opencode-skills;
+          packages.release-tag = release-tag;
+          packages.scripts = repo-scripts;
 
-        apps.default = flake-utils.lib.mkApp {
-          drv = linear;
-          exePath = "/bin/${cliProgram}";
-        };
-        apps.linear-bundled = flake-utils.lib.mkApp {
-          drv = linear-bundled;
-          exePath = "/bin/${cliProgram}";
-        };
-        apps.linear = flake-utils.lib.mkApp {
-          drv = linear;
-          exePath = "/bin/${cliProgram}";
-        };
-        apps.ci-clippy = flake-utils.lib.mkApp {
-          drv = ci-clippy;
-        };
-        apps.ci-fmt = flake-utils.lib.mkApp {
-          drv = ci-fmt;
-        };
-        apps.ci-test = flake-utils.lib.mkApp {
-          drv = ci-test;
-        };
-        apps.fetch-upstream = flake-utils.lib.mkApp {
-          drv = fetch-upstream;
-        };
-        apps.link-opencode-skills = flake-utils.lib.mkApp {
-          drv = link-opencode-skills;
-        };
-        apps.release-tag = flake-utils.lib.mkApp {
-          drv = release-tag;
-        };
+          apps.default = flake-utils.lib.mkApp {
+            drv = linear;
+            exePath = "/bin/${cliProgram}";
+          };
+          apps.linear-bundled = flake-utils.lib.mkApp {
+            drv = linear-bundled;
+            exePath = "/bin/${cliProgram}";
+          };
+          apps.linear = flake-utils.lib.mkApp {
+            drv = linear;
+            exePath = "/bin/${cliProgram}";
+          };
+          apps.ci-clippy = flake-utils.lib.mkApp {
+            drv = ci-clippy;
+          };
+          apps.ci-fmt = flake-utils.lib.mkApp {
+            drv = ci-fmt;
+          };
+          apps.ci-test = flake-utils.lib.mkApp {
+            drv = ci-test;
+          };
+          apps.fetch-upstream = flake-utils.lib.mkApp {
+            drv = fetch-upstream;
+          };
+          apps.link-opencode-skills = flake-utils.lib.mkApp {
+            drv = link-opencode-skills;
+          };
+          apps.release-tag = flake-utils.lib.mkApp {
+            drv = release-tag;
+          };
 
-        checks = {
-          build = linear;
-          fmt = fmt-check;
-        };
+          checks =
+            {
+              build = linear;
+              fmt = fmt-check;
+            }
+            // lib.optionalAttrs (homebrewArtifact != null) {
+              "homebrew-artifact" = homebrewArtifact;
+            };
 
-        devShells.default = pkgs.mkShell {
-          inputsFrom = [linear];
-          packages = with pkgs; [
-            alejandra
-            cargo
-            cargo-audit
-            cargo-deny
-            clippy
-            jujutsu
-            nixd
-            pkg-config
-            rust-analyzer
-            rustc
-            rustfmt
-            repo-scripts
-          ];
-        };
-      }
+          devShells.default = pkgs.mkShell {
+            inputsFrom = [linear];
+            packages = with pkgs; [
+              alejandra
+              cargo
+              cargo-audit
+              cargo-deny
+              clippy
+              jujutsu
+              nixd
+              pkg-config
+              rust-analyzer
+              rustc
+              rustfmt
+              repo-scripts
+            ];
+          };
+        }
+        // lib.optionalAttrs (homebrewArtifact != null) {
+          packages."homebrew-artifact" = homebrewArtifact;
+        }
     )
     // {
       lib.opencodeSkills = let

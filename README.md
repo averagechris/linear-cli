@@ -9,6 +9,10 @@ A fast, comprehensive command-line interface for [Linear](https://linear.app) bu
 ## Installation
 
 ```bash
+# From any Homebrew tap that packages this binary
+brew tap your-org/tap
+brew install your-org/tap/linear-cli
+
 # With Nix (minimal package)
 nix run .#linear-cli -- --help
 
@@ -22,6 +26,8 @@ cargo install linear-cli
 git clone https://github.com/Finesssee/linear-cli.git
 cd linear-cli && cargo build --release
 ```
+
+For Homebrew installs, the tap formula should install `linear` as the primary executable and add a `linear-cli` symlink for compatibility.
 
 Credentials are stored in the OS keyring (Keychain, Credential Manager, or Secret Service). Plaintext credential storage is not supported.
 
@@ -39,6 +45,9 @@ linear-cli update
 # Check without changing any local installation
 linear-cli update --check
 
+# Update a Homebrew-installed binary
+brew upgrade your-org/tap/linear-cli
+
 # Update a cargo-installed binary
 cargo install --locked linear-cli
 
@@ -53,6 +62,14 @@ To publish a new release tag for this fork after updating `Cargo.toml`'s version
 ```bash
 nix run .#release-tag
 ```
+
+To build the macOS release artifact expected by a supported Homebrew tap build host:
+
+```bash
+nix build .#homebrew-artifact
+```
+
+That build produces a `result/` directory containing platform-specific artifacts such as `linear-cli-v1.2.2-darwin-arm64.tar.gz` plus a matching `.sha256` file. See [docs/homebrew.md](docs/homebrew.md) for the release artifact contract and supported platform details.
 
 ## Quick Start
 
