@@ -8,16 +8,16 @@ allowed-tools: Bash
 
 ```bash
 # Cycle metrics (velocity, burndown)
-linear-cli mt cycle CYCLE_ID
-linear-cli mt cycle CYCLE_ID --output json
+linear mt cycle CYCLE_ID
+linear mt cycle CYCLE_ID --output json
 
 # Project progress
-linear-cli mt project PROJECT_ID
-linear-cli mt project PROJECT_ID --output json
+linear mt project PROJECT_ID
+linear mt project PROJECT_ID --output json
 
 # Team velocity over time
-linear-cli mt velocity TEAM_KEY
-linear-cli mt velocity ENG --cycles 5    # Last 5 cycles
+linear mt velocity TEAM_KEY
+linear mt velocity ENG --cycles 5    # Last 5 cycles
 ```
 
 ## Flags

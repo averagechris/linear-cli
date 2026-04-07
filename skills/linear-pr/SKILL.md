@@ -6,62 +6,62 @@ allowed-tools: Bash
 
 # Linear PR Creation
 
-Create GitHub pull requests linked to Linear issues using `linear-cli`.
+Create GitHub pull requests linked to Linear issues using `linear`.
 
 ## Create PR
 
 ```bash
 # Create PR linked to Linear issue
-linear-cli g pr LIN-123
+linear g pr LIN-123
 
 # Draft PR
-linear-cli g pr LIN-123 --draft
+linear g pr LIN-123 --draft
 
 # Specify base branch
-linear-cli g pr LIN-123 --base main
+linear g pr LIN-123 --base main
 
 # Open in browser after creation
-linear-cli g pr LIN-123 --web
+linear g pr LIN-123 --web
 ```
 
 ## Git Branch Operations
 
 ```bash
 # Create and checkout branch for issue
-linear-cli g checkout LIN-123
+linear g checkout LIN-123
 
 # Custom branch name
-linear-cli g checkout LIN-123 -b my-custom-branch
+linear g checkout LIN-123 -b my-custom-branch
 
 # Just show branch name (don't create)
-linear-cli g branch LIN-123
+linear g branch LIN-123
 
 # Create branch without checkout
-linear-cli g create LIN-123
+linear g create LIN-123
 ```
 
 ## Complete Workflow
 
 ```bash
 # 1. Start work (assigns, sets In Progress, creates branch)
-linear-cli i start LIN-123 --checkout
+linear i start LIN-123 --checkout
 
 # 2. Make changes and commit
 git add . && git commit -m "Fix the bug"
 
 # 3. Create PR
-linear-cli g pr LIN-123
+linear g pr LIN-123
 
 # 4. Mark done
-linear-cli i update LIN-123 -s Done
+linear i update LIN-123 -s Done
 ```
 
 ## Get Current Issue
 
 ```bash
 # Get issue from current git branch
-linear-cli context
-linear-cli context --output json
+linear context
+linear context --output json
 ```
 
 ## Tips

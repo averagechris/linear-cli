@@ -8,24 +8,24 @@ allowed-tools: Bash
 
 ```bash
 # List all custom views
-linear-cli v list
-linear-cli v list --shared              # Shared views only
+linear v list
+linear v list --shared              # Shared views only
 
 # Get view details
-linear-cli v get "My View"
+linear v get "My View"
 
 # Create a view
-linear-cli v create "Bug Triage" --shared
+linear v create "Bug Triage" --shared
 
 # Update a view
-linear-cli v update VIEW_ID --name "Renamed"
+linear v update VIEW_ID --name "Renamed"
 
 # Delete a view
-linear-cli v delete VIEW_ID --force
+linear v delete VIEW_ID --force
 
 # Apply view to issue list
-linear-cli i list --view "Bug Triage"
-linear-cli p list --view "Active Projects"
+linear i list --view "Bug Triage"
+linear p list --view "Active Projects"
 ```
 
 ## Flags

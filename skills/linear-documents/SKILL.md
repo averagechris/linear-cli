@@ -8,20 +8,20 @@ allowed-tools: Bash
 
 ```bash
 # List documents
-linear-cli d list
-linear-cli d list --output json
+linear d list
+linear d list --output json
 
 # Get document
-linear-cli d get DOC_ID
-linear-cli d get DOC_ID --output json
+linear d get DOC_ID
+linear d get DOC_ID --output json
 
 # Create document
-linear-cli d create "Design Doc" -p PROJECT_ID
-linear-cli d create "RFC" -p PROJECT_ID --id-only
+linear d create "Design Doc" -p PROJECT_ID
+linear d create "RFC" -p PROJECT_ID --id-only
 
 # Update document
-linear-cli d update DOC_ID --title "New Title"
-linear-cli d update DOC_ID --content "New content"
+linear d update DOC_ID --title "New Title"
+linear d update DOC_ID --content "New content"
 ```
 
 ## Flags

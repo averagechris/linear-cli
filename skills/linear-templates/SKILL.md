@@ -8,36 +8,36 @@ allowed-tools: Bash
 
 ```bash
 # List local templates
-linear-cli tpl list
+linear tpl list
 
 # Show template
-linear-cli tpl show bug
+linear tpl show bug
 
 # Create local template
-linear-cli tpl create bug
+linear tpl create bug
 
 # Delete local template
-linear-cli tpl delete bug
+linear tpl delete bug
 ```
 
 # API Templates (Linear server-side)
 
 ```bash
 # List remote templates
-linear-cli tpl remote-list
-linear-cli tpl remote-list --output json
+linear tpl remote-list
+linear tpl remote-list --output json
 
 # Get remote template
-linear-cli tpl remote-get TEMPLATE_ID
+linear tpl remote-get TEMPLATE_ID
 
 # Create remote template
-linear-cli tpl remote-create "Bug Report" -t ENG
+linear tpl remote-create "Bug Report" -t ENG
 
 # Update remote template
-linear-cli tpl remote-update TEMPLATE_ID --name "Updated"
+linear tpl remote-update TEMPLATE_ID --name "Updated"
 
 # Delete remote template
-linear-cli tpl remote-delete TEMPLATE_ID --force
+linear tpl remote-delete TEMPLATE_ID --force
 ```
 
 ## Flags

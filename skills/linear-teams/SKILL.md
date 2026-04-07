@@ -8,34 +8,34 @@ allowed-tools: Bash
 
 ```bash
 # List teams
-linear-cli t list
-linear-cli t list --output json
+linear t list
+linear t list --output json
 
 # Get team details
-linear-cli t get ENG
-linear-cli t members ENG             # List team members
+linear t get ENG
+linear t members ENG             # List team members
 
 # Create team
-linear-cli t create "Platform" -k PLT
-linear-cli t create "Mobile" -k MOB --description "Mobile team" --private
+linear t create "Platform" -k PLT
+linear t create "Mobile" -k MOB --description "Mobile team" --private
 
 # Update team
-linear-cli t update ENG --name "Engineering" --timezone "America/New_York"
+linear t update ENG --name "Engineering" --timezone "America/New_York"
 
 # Delete team
-linear-cli t delete TEAM_ID --force
+linear t delete TEAM_ID --force
 ```
 
 # Users
 
 ```bash
 # List users
-linear-cli u list                    # All workspace users
-linear-cli u list --team ENG         # Team members only
+linear u list                    # All workspace users
+linear u list --team ENG         # Team members only
 
 # Current user
-linear-cli u me
-linear-cli me                        # Alias (whoami)
+linear u me
+linear me                        # Alias (whoami)
 ```
 
 ## Flags

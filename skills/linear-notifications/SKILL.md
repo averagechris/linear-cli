@@ -8,23 +8,23 @@ allowed-tools: Bash
 
 ```bash
 # List unread notifications
-linear-cli n list
-linear-cli n list --output json
+linear n list
+linear n list --output json
 
 # Get unread count
-linear-cli n count
+linear n count
 
 # Mark as read
-linear-cli n read NOTIFICATION_ID
+linear n read NOTIFICATION_ID
 
 # Mark all as read
-linear-cli n read-all
+linear n read-all
 
 # Archive a notification
-linear-cli n archive NOTIFICATION_ID
+linear n archive NOTIFICATION_ID
 
 # Archive all notifications
-linear-cli n archive-all
+linear n archive-all
 ```
 
 ## Flags

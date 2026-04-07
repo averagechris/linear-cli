@@ -8,12 +8,12 @@ allowed-tools: Bash
 
 ```bash
 # List initiatives
-linear-cli init list
-linear-cli init list --output json
+linear init list
+linear init list --output json
 
 # Get initiative details
-linear-cli init get INITIATIVE_ID
-linear-cli init get INITIATIVE_ID --output json
+linear init get INITIATIVE_ID
+linear init get INITIATIVE_ID --output json
 ```
 
 ## Flags

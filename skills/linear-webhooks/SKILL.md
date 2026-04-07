@@ -8,26 +8,26 @@ allowed-tools: Bash
 
 ```bash
 # List all webhooks
-linear-cli wh list
+linear wh list
 
 # Create a webhook
-linear-cli wh create https://example.com/hook --events Issue
+linear wh create https://example.com/hook --events Issue
 
 # Get webhook details
-linear-cli wh get WEBHOOK_ID
+linear wh get WEBHOOK_ID
 
 # Update a webhook
-linear-cli wh update WEBHOOK_ID --url https://new-url.com
+linear wh update WEBHOOK_ID --url https://new-url.com
 
 # Delete a webhook
-linear-cli wh delete WEBHOOK_ID --force
+linear wh delete WEBHOOK_ID --force
 
 # Rotate signing secret
-linear-cli wh rotate-secret WEBHOOK_ID
+linear wh rotate-secret WEBHOOK_ID
 
 # Listen for events locally (dev/testing)
-linear-cli wh listen --port 9000
-linear-cli wh listen --port 9000 --secret SIGNING_SECRET
+linear wh listen --port 9000
+linear wh listen --port 9000 --secret SIGNING_SECRET
 ```
 
 ## Subcommands

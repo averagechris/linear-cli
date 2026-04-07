@@ -8,13 +8,13 @@ allowed-tools: Bash
 
 ```bash
 # Run a query
-linear-cli api query '{ viewer { id name email } }'
+linear api query '{ viewer { id name email } }'
 
 # Query with variables
-linear-cli api query -v teamId=abc '{ team(id: $teamId) { name } }'
+linear api query -v teamId=abc '{ team(id: $teamId) { name } }'
 
 # Run a mutation
-linear-cli api mutate -v title="Bug" '
+linear api mutate -v title="Bug" '
   mutation($title: String!) {
     issueCreate(input: { title: $title, teamId: "..." }) {
       issue { id identifier }
@@ -23,7 +23,7 @@ linear-cli api mutate -v title="Bug" '
 '
 
 # Pipe query from file
-cat query.graphql | linear-cli api query -
+cat query.graphql | linear api query -
 ```
 
 ## Flags

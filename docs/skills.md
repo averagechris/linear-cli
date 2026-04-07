@@ -133,7 +133,7 @@ allowed-tools: Bash
 # List/Get Issues
 
 \`\`\`bash
-linear-cli i list --output json
+linear i list --output json
 \`\`\`
 ```
 

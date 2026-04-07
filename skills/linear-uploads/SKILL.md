@@ -6,33 +6,33 @@ allowed-tools: Bash Read
 
 # Linear Uploads
 
-Download attachments and images from Linear issues using `linear-cli`.
+Download attachments and images from Linear issues using `linear`.
 
 ## Download to File
 
 ```bash
 # Download image/attachment to file
-linear-cli up fetch "https://uploads.linear.app/..." -f image.png
+linear up fetch "https://uploads.linear.app/..." -f image.png
 
 # Download to temp directory
-linear-cli up fetch "https://uploads.linear.app/..." -f /tmp/screenshot.png
+linear up fetch "https://uploads.linear.app/..." -f /tmp/screenshot.png
 ```
 
 ## Output to Stdout
 
 ```bash
 # Pipe to other tools
-linear-cli up fetch "https://uploads.linear.app/..." | base64
+linear up fetch "https://uploads.linear.app/..." | base64
 
 # Redirect to file
-linear-cli up fetch "https://uploads.linear.app/..." > file.png
+linear up fetch "https://uploads.linear.app/..." > file.png
 ```
 
 ## Finding Upload URLs
 
 Upload URLs are found in:
-- Issue descriptions (`linear-cli i get LIN-123 --output json`)
-- Comments (`linear-cli cm list LIN-123 --output json`)
+- Issue descriptions (`linear i get LIN-123 --output json`)
+- Comments (`linear cm list LIN-123 --output json`)
 
 URL pattern: `https://uploads.linear.app/{org}/{upload}/{filename}`
 
@@ -42,7 +42,7 @@ Since Claude is multimodal, download then read:
 
 ```bash
 # 1. Download to temp file
-linear-cli up fetch "https://uploads.linear.app/..." -f /tmp/screenshot.png
+linear up fetch "https://uploads.linear.app/..." -f /tmp/screenshot.png
 
 # 2. Use Read tool on the file
 # Claude can view images directly

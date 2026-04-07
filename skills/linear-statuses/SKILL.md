@@ -8,14 +8,14 @@ allowed-tools: Bash
 
 ```bash
 # List all statuses for a team
-linear-cli st list -t ENG
-linear-cli st list -t ENG --output json
+linear st list -t ENG
+linear st list -t ENG --output json
 
 # Get status details
-linear-cli st get "In Progress" -t ENG
+linear st get "In Progress" -t ENG
 
 # Update a workflow state
-linear-cli st update STATE_ID --name "Reviewing" --color "#3B82F6"
+linear st update STATE_ID --name "Reviewing" --color "#3B82F6"
 ```
 
 ## Flags

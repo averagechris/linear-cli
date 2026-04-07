@@ -8,23 +8,23 @@ allowed-tools: Bash
 
 ```bash
 # List attachments on an issue
-linear-cli att list SCW-123
-linear-cli att list SCW-123 --output json
+linear att list SCW-123
+linear att list SCW-123 --output json
 
 # Get attachment details
-linear-cli att get ATTACHMENT_ID
+linear att get ATTACHMENT_ID
 
 # Create attachment
-linear-cli att create SCW-123 -T "Design Doc" -u https://example.com
+linear att create SCW-123 -T "Design Doc" -u https://example.com
 
 # Link a URL to an issue (shorthand)
-linear-cli att link-url SCW-123 https://example.com
+linear att link-url SCW-123 https://example.com
 
 # Update attachment
-linear-cli att update ATTACHMENT_ID -T "New Title"
+linear att update ATTACHMENT_ID -T "New Title"
 
 # Delete attachment
-linear-cli att delete ATTACHMENT_ID --force
+linear att delete ATTACHMENT_ID --force
 ```
 
 ## Flags

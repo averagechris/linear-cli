@@ -8,17 +8,17 @@ allowed-tools: Bash
 
 ```bash
 # Import from CSV
-linear-cli im csv issues.csv -t ENG
+linear im csv issues.csv -t ENG
 
 # Preview without creating (dry run)
-linear-cli im csv issues.csv -t ENG --dry-run
+linear im csv issues.csv -t ENG --dry-run
 
 # Import from JSON
-linear-cli im json issues.json -t ENG
+linear im json issues.json -t ENG
 
 # JSON round-trip (export then re-import)
-linear-cli exp json -t ENG -f backup.json
-linear-cli im json backup.json -t ENG
+linear exp json -t ENG -f backup.json
+linear im json backup.json -t ENG
 ```
 
 ## CSV Format

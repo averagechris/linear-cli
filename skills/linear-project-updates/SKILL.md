@@ -8,22 +8,22 @@ allowed-tools: Bash
 
 ```bash
 # List updates for a project
-linear-cli pu list "My Project"
-linear-cli pu list "My Project" --output json
+linear pu list "My Project"
+linear pu list "My Project" --output json
 
 # Get update details
-linear-cli pu get UPDATE_ID
+linear pu get UPDATE_ID
 
 # Create a project update
-linear-cli pu create "My Project" -b "On track this sprint"
-linear-cli pu create "My Project" -b "Blocked on API" --health atRisk
+linear pu create "My Project" -b "On track this sprint"
+linear pu create "My Project" -b "Blocked on API" --health atRisk
 
 # Update an existing update
-linear-cli pu update UPDATE_ID -b "Updated status"
+linear pu update UPDATE_ID -b "Updated status"
 
 # Archive/unarchive
-linear-cli pu archive UPDATE_ID
-linear-cli pu unarchive UPDATE_ID
+linear pu archive UPDATE_ID
+linear pu unarchive UPDATE_ID
 ```
 
 ## Health Status

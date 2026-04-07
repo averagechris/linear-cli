@@ -8,12 +8,12 @@ allowed-tools: Bash
 
 ```bash
 # List roadmaps
-linear-cli rm list
-linear-cli rm list --output json
+linear rm list
+linear rm list --output json
 
 # Get roadmap details
-linear-cli rm get ROADMAP_ID
-linear-cli rm get ROADMAP_ID --output json
+linear rm get ROADMAP_ID
+linear rm get ROADMAP_ID --output json
 ```
 
 ## Flags

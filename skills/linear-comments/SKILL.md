@@ -8,17 +8,17 @@ allowed-tools: Bash
 
 ```bash
 # List comments on an issue
-linear-cli cm list ISSUE_ID
-linear-cli cm list SCW-123 --output json
+linear cm list ISSUE_ID
+linear cm list SCW-123 --output json
 
 # Create a comment
-linear-cli cm create ISSUE_ID -b "Looks good, merging!"
+linear cm create ISSUE_ID -b "Looks good, merging!"
 
 # Update a comment
-linear-cli cm update COMMENT_ID -b "Updated text"
+linear cm update COMMENT_ID -b "Updated text"
 
 # Delete a comment
-linear-cli cm delete COMMENT_ID --force
+linear cm delete COMMENT_ID --force
 ```
 
 ## Flags

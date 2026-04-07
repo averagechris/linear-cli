@@ -8,15 +8,15 @@ allowed-tools: Bash
 
 ```bash
 # List favorites
-linear-cli fav list
-linear-cli fav list --output json
+linear fav list
+linear fav list --output json
 
 # Add to favorites
-linear-cli fav add LIN-123           # Add issue
-linear-cli fav add PROJECT_ID        # Add project
+linear fav add LIN-123           # Add issue
+linear fav add PROJECT_ID        # Add project
 
 # Remove from favorites
-linear-cli fav remove LIN-123
+linear fav remove LIN-123
 ```
 
 ## Flags

@@ -8,14 +8,14 @@ allowed-tools: Bash
 
 ```bash
 # Watch single issue (polls for changes)
-linear-cli watch LIN-123
+linear watch LIN-123
 
 # Custom interval
-linear-cli watch LIN-123 --interval 30   # Poll every 30 seconds
-linear-cli watch LIN-123 -i 60           # Poll every 60 seconds
+linear watch LIN-123 --interval 30   # Poll every 30 seconds
+linear watch LIN-123 -i 60           # Poll every 60 seconds
 
 # JSON output for scripting
-linear-cli watch LIN-123 --output json
+linear watch LIN-123 --output json
 ```
 
 ## Flags

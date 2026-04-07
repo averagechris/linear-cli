@@ -8,17 +8,17 @@ allowed-tools: Bash
 
 ```bash
 # List issues
-linear-cli i list                    # All
-linear-cli i list -t ENG             # By team
-linear-cli i list -s "In Progress"   # By status
-linear-cli i list --assignee me      # My issues
+linear i list                    # All
+linear i list -t ENG             # By team
+linear i list -s "In Progress"   # By status
+linear i list --assignee me      # My issues
 
 # Get issue(s)
-linear-cli i get LIN-123
-linear-cli i get LIN-1 LIN-2 LIN-3   # Multiple
+linear i get LIN-123
+linear i get LIN-1 LIN-2 LIN-3   # Multiple
 
 # Agent-optimized
-linear-cli i list --output json --compact --fields identifier,title,state.name
+linear i list --output json --compact --fields identifier,title,state.name
 ```
 
 ## Flags

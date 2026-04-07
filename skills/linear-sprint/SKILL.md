@@ -8,24 +8,24 @@ allowed-tools: Bash
 
 ```bash
 # Current sprint status
-linear-cli sp status -t ENG
+linear sp status -t ENG
 
 # Sprint progress (completion bar)
-linear-cli sp progress -t ENG
+linear sp progress -t ENG
 
 # Plan next sprint (view planned issues)
-linear-cli sp plan -t ENG
+linear sp plan -t ENG
 
 # Carry over incomplete issues to next cycle
-linear-cli sp carry-over -t ENG --force
+linear sp carry-over -t ENG --force
 
 # ASCII burndown chart
-linear-cli sp burndown -t ENG
+linear sp burndown -t ENG
 
 # Velocity across recent sprints
-linear-cli sp velocity -t ENG
-linear-cli sp velocity -t ENG --cycles 10    # Last 10 sprints
-linear-cli sp velocity -t ENG --output json
+linear sp velocity -t ENG
+linear sp velocity -t ENG --cycles 10    # Last 10 sprints
+linear sp velocity -t ENG --output json
 ```
 
 ## Subcommands

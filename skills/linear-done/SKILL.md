@@ -8,11 +8,11 @@ allowed-tools: Bash
 
 ```bash
 # Mark current branch's issue as Done
-linear-cli done
+linear done
 
 # Set to a different status
-linear-cli done --status "In Review"
-linear-cli done -s "In Progress"
+linear done --status "In Review"
+linear done -s "In Progress"
 ```
 
 Reads the current git branch, extracts the issue ID (e.g. `feat/SCW-123-title` -> `SCW-123`), and updates the issue status.

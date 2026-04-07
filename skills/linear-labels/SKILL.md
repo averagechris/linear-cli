@@ -8,19 +8,19 @@ allowed-tools: Bash
 
 ```bash
 # List labels
-linear-cli l list                    # Project labels
-linear-cli l list --type issue       # Issue labels
+linear l list                    # Project labels
+linear l list --type issue       # Issue labels
 
 # Create label
-linear-cli l create "Feature" --color "#10B981"
-linear-cli l create "Bug" --color "#EF4444" --id-only
+linear l create "Feature" --color "#10B981"
+linear l create "Bug" --color "#EF4444" --id-only
 
 # Delete label
-linear-cli l delete LABEL_ID
-linear-cli l delete LABEL_ID --force
+linear l delete LABEL_ID
+linear l delete LABEL_ID --force
 
 # Agent-optimized
-linear-cli l list --output json --compact
+linear l list --output json --compact
 ```
 
 ## Flags

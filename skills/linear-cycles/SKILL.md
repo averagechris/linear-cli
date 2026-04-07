@@ -8,29 +8,29 @@ allowed-tools: Bash
 
 ```bash
 # List cycles
-linear-cli c list -t ENG             # Team cycles
-linear-cli c list -t ENG --output json
+linear c list -t ENG             # Team cycles
+linear c list -t ENG --output json
 
 # Current cycle
-linear-cli c current -t ENG
-linear-cli c current -t ENG --output json
+linear c current -t ENG
+linear c current -t ENG --output json
 
 # Create cycle
-linear-cli c create -t ENG --name "Sprint 5"
-linear-cli c create -t ENG --name "Sprint 5" --starts-at 2024-01-01 --ends-at 2024-01-14
+linear c create -t ENG --name "Sprint 5"
+linear c create -t ENG --name "Sprint 5" --starts-at 2024-01-01 --ends-at 2024-01-14
 
 # Get cycle details
-linear-cli c get CYCLE_ID
+linear c get CYCLE_ID
 
 # Update cycle
-linear-cli c update CYCLE_ID --name "Sprint 5b"
-linear-cli c update CYCLE_ID --description "Updated goals" --dry-run
+linear c update CYCLE_ID --name "Sprint 5b"
+linear c update CYCLE_ID --description "Updated goals" --dry-run
 
 # Complete a cycle
-linear-cli c complete CYCLE_ID
+linear c complete CYCLE_ID
 
 # Delete cycle
-linear-cli c delete CYCLE_ID --force
+linear c delete CYCLE_ID --force
 ```
 
 ## Flags

@@ -8,23 +8,23 @@ allowed-tools: Bash
 
 ```bash
 # Export issues to CSV
-linear-cli exp csv -t ENG                     # Export team issues
-linear-cli exp csv -t ENG -f issues.csv       # Export to file
-linear-cli exp csv --all -t ENG               # All pages
+linear exp csv -t ENG                     # Export team issues
+linear exp csv -t ENG -f issues.csv       # Export to file
+linear exp csv --all -t ENG               # All pages
 
 # Export to Markdown
-linear-cli exp markdown -t ENG
-linear-cli exp markdown -t ENG -f issues.md
+linear exp markdown -t ENG
+linear exp markdown -t ENG -f issues.md
 
 # Export to JSON (round-trip compatible with import)
-linear-cli exp json -t ENG -f backup.json
+linear exp json -t ENG -f backup.json
 
 # Export projects to CSV
-linear-cli exp projects-csv -f projects.csv
+linear exp projects-csv -f projects.csv
 
 # With filters
-linear-cli exp csv -t ENG -s "In Progress"
-linear-cli exp csv -t ENG --assignee me
+linear exp csv -t ENG -s "In Progress"
+linear exp csv -t ENG --assignee me
 ```
 
 ## Flags

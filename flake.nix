@@ -16,8 +16,9 @@
         pkgs = import nixpkgs {inherit system;};
         lib = pkgs.lib;
         cargoToml = fromTOML (builtins.readFile ./Cargo.toml);
+        cliConfig = fromTOML (builtins.readFile ./config/cli.toml);
         package = cargoToml.package;
-        cliProgram = "linear";
+        cliProgram = cliConfig.cli.program_name;
         commonRustArgs = {
           version = package.version;
           src = lib.cleanSource ./.;
@@ -114,6 +115,9 @@
         '';
         ciTestScript = ''
           cargo test --locked
+        '';
+        ciSkillsRenderScript = ''
+          exec bash ./scripts/render-skills.sh --check "$@"
         '';
         releaseTagScript = ''
           if [[ $# -eq 1 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
@@ -304,6 +308,17 @@
             rustc
           ];
         };
+        ci-skills-render = mkRepoScript {
+          name = "ci-skills-render";
+          text = ciSkillsRenderScript;
+          runtimeInputs = with pkgs; [
+            bash
+            coreutils
+            diffutils
+            findutils
+            gnused
+          ];
+        };
         release-tag = mkRepoScript {
           name = "release-tag";
           text = releaseTagScript;
@@ -318,6 +333,7 @@
           paths = [
             ci-clippy
             ci-fmt
+            ci-skills-render
             ci-test
             fetch-upstream
             link-opencode-skills
@@ -344,11 +360,24 @@
             ci-fmt
             mkdir -p "$out"
           '';
+        skills-check =
+          pkgs.runCommand "${package.name}-skills-check" {
+            nativeBuildInputs = [ci-skills-render];
+            src = lib.cleanSource ./.;
+          } ''
+            export HOME="$TMPDIR"
+            cp -R "$src" source
+            chmod -R +w source
+            cd source
+            ci-skills-render
+            mkdir -p "$out"
+          '';
       in
         {
           packages.default = linear;
           packages.ci-clippy = ci-clippy;
           packages.ci-fmt = ci-fmt;
+          packages.ci-skills-render = ci-skills-render;
           packages.ci-test = ci-test;
           packages.linear-bundled = linear-bundled;
           packages.linear = linear;
@@ -375,6 +404,9 @@
           apps.ci-fmt = flake-utils.lib.mkApp {
             drv = ci-fmt;
           };
+          apps.ci-skills-render = flake-utils.lib.mkApp {
+            drv = ci-skills-render;
+          };
           apps.ci-test = flake-utils.lib.mkApp {
             drv = ci-test;
           };
@@ -392,6 +424,7 @@
             {
               build = linear;
               fmt = fmt-check;
+              skills = skills-check;
             }
             // lib.optionalAttrs (homebrewArtifact != null) {
               "homebrew-artifact" = homebrewArtifact;

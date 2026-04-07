@@ -1,0 +1,10 @@
+# Source of truth for CLI binary name and exported skill configuration
+# This file is the single source of truth for the published CLI program name.
+# All skills and documentation should reference this value.
+
+[cli]
+# The published binary name used in all exported skills and documentation
+program_name = "linear"
+
+# The Cargo package name (internal, not user-facing)
+package_name = "linear-cli"

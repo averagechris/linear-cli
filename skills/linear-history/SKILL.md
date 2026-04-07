@@ -8,12 +8,12 @@ allowed-tools: Bash
 
 ```bash
 # View issue activity
-linear-cli hist issue LIN-123
-linear-cli hist issue LIN-123 --output json
+linear hist issue LIN-123
+linear hist issue LIN-123 --output json
 
 # With pagination
-linear-cli hist issue LIN-123 --limit 50
-linear-cli hist issue LIN-123 --all
+linear hist issue LIN-123 --limit 50
+linear hist issue LIN-123 --all
 ```
 
 ## Flags
