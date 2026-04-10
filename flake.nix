@@ -372,88 +372,87 @@
             ci-skills-render
             mkdir -p "$out"
           '';
-      in
-        {
-          packages =
-            {
-              default = linear;
-              ci-clippy = ci-clippy;
-              ci-fmt = ci-fmt;
-              ci-skills-render = ci-skills-render;
-              ci-test = ci-test;
-              linear-bundled = linear-bundled;
-              linear = linear;
-              fetch-upstream = fetch-upstream;
-              link-opencode-skills = link-opencode-skills;
-              release-tag = release-tag;
-              scripts = repo-scripts;
-            }
-            // lib.optionalAttrs (homebrewArtifact != null) {
-              "homebrew-artifact" = homebrewArtifact;
-            };
-
-          apps.default = flake-utils.lib.mkApp {
-            drv = linear;
-            exePath = "/bin/${cliProgram}";
-          };
-          apps.linear-bundled = flake-utils.lib.mkApp {
-            drv = linear-bundled;
-            exePath = "/bin/${cliProgram}";
-          };
-          apps.linear = flake-utils.lib.mkApp {
-            drv = linear;
-            exePath = "/bin/${cliProgram}";
-          };
-          apps.ci-clippy = flake-utils.lib.mkApp {
-            drv = ci-clippy;
-          };
-          apps.ci-fmt = flake-utils.lib.mkApp {
-            drv = ci-fmt;
-          };
-          apps.ci-skills-render = flake-utils.lib.mkApp {
-            drv = ci-skills-render;
-          };
-          apps.ci-test = flake-utils.lib.mkApp {
-            drv = ci-test;
-          };
-          apps.fetch-upstream = flake-utils.lib.mkApp {
-            drv = fetch-upstream;
-          };
-          apps.link-opencode-skills = flake-utils.lib.mkApp {
-            drv = link-opencode-skills;
-          };
-          apps.release-tag = flake-utils.lib.mkApp {
-            drv = release-tag;
+      in {
+        packages =
+          {
+            default = linear;
+            ci-clippy = ci-clippy;
+            ci-fmt = ci-fmt;
+            ci-skills-render = ci-skills-render;
+            ci-test = ci-test;
+            linear-bundled = linear-bundled;
+            linear = linear;
+            fetch-upstream = fetch-upstream;
+            link-opencode-skills = link-opencode-skills;
+            release-tag = release-tag;
+            scripts = repo-scripts;
+          }
+          // lib.optionalAttrs (homebrewArtifact != null) {
+            "homebrew-artifact" = homebrewArtifact;
           };
 
-          checks =
-            {
-              build = linear;
-              fmt = fmt-check;
-              skills = skills-check;
-            }
-            // lib.optionalAttrs (homebrewArtifact != null) {
-              "homebrew-artifact" = homebrewArtifact;
-            };
+        apps.default = flake-utils.lib.mkApp {
+          drv = linear;
+          exePath = "/bin/${cliProgram}";
+        };
+        apps.linear-bundled = flake-utils.lib.mkApp {
+          drv = linear-bundled;
+          exePath = "/bin/${cliProgram}";
+        };
+        apps.linear = flake-utils.lib.mkApp {
+          drv = linear;
+          exePath = "/bin/${cliProgram}";
+        };
+        apps.ci-clippy = flake-utils.lib.mkApp {
+          drv = ci-clippy;
+        };
+        apps.ci-fmt = flake-utils.lib.mkApp {
+          drv = ci-fmt;
+        };
+        apps.ci-skills-render = flake-utils.lib.mkApp {
+          drv = ci-skills-render;
+        };
+        apps.ci-test = flake-utils.lib.mkApp {
+          drv = ci-test;
+        };
+        apps.fetch-upstream = flake-utils.lib.mkApp {
+          drv = fetch-upstream;
+        };
+        apps.link-opencode-skills = flake-utils.lib.mkApp {
+          drv = link-opencode-skills;
+        };
+        apps.release-tag = flake-utils.lib.mkApp {
+          drv = release-tag;
+        };
 
-          devShells.default = pkgs.mkShell {
-            inputsFrom = [linear];
-            packages = with pkgs; [
-              alejandra
-              cargo
-              cargo-audit
-              cargo-deny
-              clippy
-              jujutsu
-              nixd
-              pkg-config
-              rust-analyzer
-              rustc
-              rustfmt
-              repo-scripts
-            ];
+        checks =
+          {
+            build = linear;
+            fmt = fmt-check;
+            skills = skills-check;
+          }
+          // lib.optionalAttrs (homebrewArtifact != null) {
+            "homebrew-artifact" = homebrewArtifact;
           };
-        }
+
+        devShells.default = pkgs.mkShell {
+          inputsFrom = [linear];
+          packages = with pkgs; [
+            alejandra
+            cargo
+            cargo-audit
+            cargo-deny
+            clippy
+            jujutsu
+            nixd
+            pkg-config
+            rust-analyzer
+            rustc
+            rustfmt
+            repo-scripts
+          ];
+        };
+      }
     )
     // {
       lib.opencodeSkills = let
