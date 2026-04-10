@@ -374,17 +374,23 @@
           '';
       in
         {
-          packages.default = linear;
-          packages.ci-clippy = ci-clippy;
-          packages.ci-fmt = ci-fmt;
-          packages.ci-skills-render = ci-skills-render;
-          packages.ci-test = ci-test;
-          packages.linear-bundled = linear-bundled;
-          packages.linear = linear;
-          packages.fetch-upstream = fetch-upstream;
-          packages.link-opencode-skills = link-opencode-skills;
-          packages.release-tag = release-tag;
-          packages.scripts = repo-scripts;
+          packages =
+            {
+              default = linear;
+              ci-clippy = ci-clippy;
+              ci-fmt = ci-fmt;
+              ci-skills-render = ci-skills-render;
+              ci-test = ci-test;
+              linear-bundled = linear-bundled;
+              linear = linear;
+              fetch-upstream = fetch-upstream;
+              link-opencode-skills = link-opencode-skills;
+              release-tag = release-tag;
+              scripts = repo-scripts;
+            }
+            // lib.optionalAttrs (homebrewArtifact != null) {
+              "homebrew-artifact" = homebrewArtifact;
+            };
 
           apps.default = flake-utils.lib.mkApp {
             drv = linear;
@@ -447,9 +453,6 @@
               repo-scripts
             ];
           };
-        }
-        // lib.optionalAttrs (homebrewArtifact != null) {
-          packages."homebrew-artifact" = homebrewArtifact;
         }
     )
     // {
