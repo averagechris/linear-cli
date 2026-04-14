@@ -167,6 +167,11 @@
           fi
 
           if [[ -d .jj ]]; then
+            if [[ "$(jj log -r "$revision" --no-graph --color=never -T 'empty()' 2>/dev/null)" == "true" ]]; then
+              printf 'refusing to tag empty jj revision: %s\n' "$revision" >&2
+              printf 'pass the non-empty release revision explicitly (for example --revision @-)\n' >&2
+              exit 1
+            fi
             jj tag set "$tag" --revision "$revision" --no-pager --color=never
             printf 'created tag %s via jj\n' "$tag"
           else
