@@ -1,11 +1,13 @@
 use anyhow::{Context, Result};
 use clap::{Subcommand, ValueHint};
+use std::fs;
 use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 
 use crate::api::{parse_linear_upload_url, LinearClient};
 
 #[cfg(unix)]
-fn create_private_file(path: &str) -> Result<std::fs::File> {
+fn create_private_file(path: &Path) -> Result<std::fs::File> {
     use std::os::unix::fs::OpenOptionsExt;
 
     std::fs::OpenOptions::new()
@@ -14,12 +16,33 @@ fn create_private_file(path: &str) -> Result<std::fs::File> {
         .truncate(true)
         .mode(0o600)
         .open(path)
-        .with_context(|| format!("Failed to create file: {}", path))
+        .with_context(|| format!("Failed to create file: {}", path.display()))
 }
 
 #[cfg(not(unix))]
-fn create_private_file(path: &str) -> Result<std::fs::File> {
-    Ok(std::fs::File::create(path).with_context(|| format!("Failed to create file: {}", path))?)
+fn create_private_file(path: &Path) -> Result<std::fs::File> {
+    Ok(std::fs::File::create(path)
+        .with_context(|| format!("Failed to create file: {}", path.display()))?)
+}
+
+fn sibling_temp_path(path: &Path) -> PathBuf {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("download");
+    parent.join(format!(".{}.tmp", file_name))
+}
+
+fn replace_file_atomically(temp_path: &Path, final_path: &Path) -> Result<()> {
+    #[cfg(windows)]
+    {
+        let _ = fs::remove_file(final_path);
+    }
+
+    fs::rename(temp_path, final_path)
+        .with_context(|| format!("Failed to move {} into place", final_path.display()))?;
+    Ok(())
 }
 
 #[derive(Subcommand)]
@@ -48,12 +71,17 @@ async fn fetch_upload(url: &str, file: Option<String>) -> Result<()> {
     let client = LinearClient::new()?;
 
     if let Some(file_path) = file {
+        let final_path = PathBuf::from(&file_path);
+        let temp_path = sibling_temp_path(&final_path);
         // Stream directly to file
-        let mut file = create_private_file(&file_path)?;
+        let mut file = create_private_file(&temp_path)?;
         let bytes_written = client
             .fetch_to_writer(url, &mut file)
             .await
             .context("Failed to fetch upload from Linear")?;
+        file.sync_all()?;
+        drop(file);
+        replace_file_atomically(&temp_path, &final_path)?;
         eprintln!("Downloaded {} bytes to {}", bytes_written, file_path);
     } else {
         // Stream directly to stdout

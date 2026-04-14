@@ -3,7 +3,9 @@ use clap::{Subcommand, ValueHint};
 use csv::Writer;
 use serde_json::json;
 use std::borrow::Cow;
+use std::fs;
 use std::io::Write;
+use std::path::{Path, PathBuf};
 
 use crate::api::LinearClient;
 use crate::output::OutputOptions;
@@ -11,7 +13,7 @@ use crate::pagination::{paginate_nodes, stream_nodes, PaginationOptions};
 use colored::Colorize;
 
 #[cfg(unix)]
-fn create_private_file(path: &str) -> Result<std::fs::File> {
+fn create_private_file(path: &Path) -> Result<std::fs::File> {
     use std::os::unix::fs::OpenOptionsExt;
 
     Ok(std::fs::OpenOptions::new()
@@ -23,30 +25,36 @@ fn create_private_file(path: &str) -> Result<std::fs::File> {
 }
 
 #[cfg(not(unix))]
-fn create_private_file(path: &str) -> Result<std::fs::File> {
+fn create_private_file(path: &Path) -> Result<std::fs::File> {
     Ok(std::fs::File::create(path)?)
 }
 
-#[cfg(unix)]
-fn write_private_string(path: &str, contents: &str) -> Result<()> {
-    use std::io::Write as _;
-    use std::os::unix::fs::OpenOptionsExt;
+fn sibling_temp_path(path: &Path) -> PathBuf {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("output");
+    parent.join(format!(".{}.tmp", file_name))
+}
 
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(path)?;
-    file.write_all(contents.as_bytes())?;
-    file.flush()?;
+fn replace_file_atomically(temp_path: &Path, final_path: &Path) -> Result<()> {
+    #[cfg(windows)]
+    {
+        let _ = fs::remove_file(final_path);
+    }
+
+    fs::rename(temp_path, final_path)?;
     Ok(())
 }
 
-#[cfg(not(unix))]
-fn write_private_string(path: &str, contents: &str) -> Result<()> {
-    std::fs::write(path, contents)?;
-    Ok(())
+fn write_private_string(path: &Path, contents: &str) -> Result<()> {
+    let temp_path = sibling_temp_path(path);
+    let mut file = create_private_file(&temp_path)?;
+    file.write_all(contents.as_bytes())?;
+    file.sync_all()?;
+    drop(file);
+    replace_file_atomically(&temp_path, path)
 }
 
 fn sanitize_csv_cell(value: &str) -> Cow<'_, str> {
@@ -215,7 +223,7 @@ async fn export_csv(
 
     let wtr: Rc<RefCell<Writer<Box<dyn Write>>>> = if let Some(ref path) = file {
         Rc::new(RefCell::new(Writer::from_writer(Box::new(
-            create_private_file(path)?,
+            create_private_file(Path::new(path))?,
         ))))
     } else {
         Rc::new(RefCell::new(Writer::from_writer(Box::new(
@@ -363,7 +371,7 @@ async fn export_markdown(
     .await?;
 
     let mut output: Box<dyn Write> = if let Some(ref path) = file {
-        Box::new(create_private_file(path)?)
+        Box::new(create_private_file(Path::new(path))?)
     } else {
         Box::new(std::io::stdout())
     };
@@ -531,7 +539,7 @@ async fn export_json(
     };
 
     if let Some(ref path) = file {
-        write_private_string(path, &json_output)?;
+        write_private_string(Path::new(path), &json_output)?;
         eprintln!("Exported {} issues to {}", flattened.len(), path);
     } else {
         println!("{}", json_output);
@@ -593,7 +601,7 @@ async fn export_projects_csv(file: Option<String>, include_archived: bool) -> Re
     .await?;
 
     let mut wtr: Writer<Box<dyn Write>> = if let Some(ref path) = file {
-        Writer::from_writer(Box::new(create_private_file(path)?))
+        Writer::from_writer(Box::new(create_private_file(Path::new(path))?))
     } else {
         Writer::from_writer(Box::new(std::io::stdout()))
     };
