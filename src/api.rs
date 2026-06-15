@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 
 use crate::cache::{Cache, CacheOptions, CacheType};
 use crate::config;
-use crate::error::CliError;
+use crate::error::{CliError, ErrorKind};
 use crate::pagination::{paginate_nodes, PaginationOptions};
 use crate::retry::{with_retry, RetryConfig};
 use crate::text::is_uuid;
@@ -150,6 +150,25 @@ fn http_error(status: StatusCode, headers: &HeaderMap, context: &str) -> CliErro
         )),
     };
     err.with_details(details)
+}
+
+/// Refine a transport-level HTTP error using its GraphQL payload.
+///
+/// Linear can return application errors (notably RATELIMITED) as a non-2xx
+/// status carrying a GraphQL `errors` array, so the transport status alone
+/// under-classifies them. When the payload resolves to a more specific kind
+/// than the status, prefer it so the exit code stays precise (e.g. 4 for a
+/// rate limit behind HTTP 400). The status-derived message is kept.
+fn refine_http_error(http_err: CliError, body: &Value) -> CliError {
+    let Some(errors) = body.get("errors") else {
+        return http_err;
+    };
+    let payload = CliError::from_graphql_errors(errors);
+    if payload.kind == ErrorKind::General {
+        return http_err;
+    }
+    CliError::new(payload.kind, http_err.message.clone())
+        .with_retry_after(http_err.retry_after.or(payload.retry_after))
 }
 
 pub fn parse_linear_upload_url(raw: &str) -> Result<Url> {
@@ -695,9 +714,16 @@ impl LinearClient {
 
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-            let mut err = http_error(status, &headers, "resource");
+            let details = if let Ok(body) = serde_json::from_str::<Value>(&body) {
+                body
+            } else {
+                json!({ "body": body.clone() })
+            };
+            let mut err = refine_http_error(http_error(status, &headers, "resource"), &details);
             if let Some(summary) = sanitize_remote_error_body(&body) {
-                err = err.with_details(json!({ "summary": summary }));
+                err = err.with_details(json!({ "summary": summary, "details": details }));
+            } else if !body.is_empty() {
+                err = err.with_details(details);
             }
             return Err(err.into());
         }
@@ -705,9 +731,7 @@ impl LinearClient {
         let result: Value = response.json().await?;
 
         if let Some(errors) = result.get("errors") {
-            return Err(CliError::general("GraphQL error")
-                .with_details(errors.clone())
-                .into());
+            return Err(CliError::from_graphql_errors(errors).into());
         }
 
         Ok(result)
@@ -902,6 +926,38 @@ fn default_retry_config() -> RetryConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn refine_http_error_prefers_ratelimited_payload_behind_http_400() {
+        let http_err = CliError::general("HTTP 400 Bad Request");
+        let body = json!({
+            "errors": [{
+                "message": "Rate limit exceeded",
+                "extensions": { "code": "RATELIMITED", "retryAfter": 12 }
+            }]
+        });
+        let refined = refine_http_error(http_err, &body);
+        assert_eq!(refined.kind, ErrorKind::RateLimited);
+        assert_eq!(refined.code(), 4);
+        assert_eq!(refined.retry_after, Some(12));
+    }
+
+    #[test]
+    fn refine_http_error_keeps_status_kind_when_payload_is_generic() {
+        let http_err = CliError::auth("Authentication failed");
+        let body = json!({ "errors": [{ "message": "Unauthorized" }] });
+        let refined = refine_http_error(http_err, &body);
+        assert_eq!(refined.kind, ErrorKind::Auth);
+        assert_eq!(refined.code(), 3);
+    }
+
+    #[test]
+    fn refine_http_error_passes_through_without_errors_array() {
+        let http_err = CliError::not_found("resource not found");
+        let body = json!({ "body": "<html>502</html>" });
+        let refined = refine_http_error(http_err, &body);
+        assert_eq!(refined.kind, ErrorKind::NotFound);
+    }
 
     #[test]
     fn test_auth_state_api_key_header() {
