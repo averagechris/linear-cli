@@ -26,7 +26,7 @@ nix run .#release -- --version X.Y.Z --submit-linux-build
 ```
 
 - `--publish-pages` runs `hut pages publish` for `averagechris.srht.site` under `/linear-cli`.
-- `--submit-linux-build` submits `.builds/release-linux-x86_64.yml`; download the successful SourceHut build artifacts into `dist/downloads/`, rebuild pages, and publish again so Linux tarballs are permanent on Pages rather than only build artifacts.
+- `--submit-linux-build` submits `.builds/release-linux-x86_64.yml`; the build creates the Linux artifact, merges it with existing hosted downloads, and republishes SourceHut Pages using build-scoped `PAGES:RW` OAuth.
 
 Use the manual steps below when you need more control or are recovering from a partial release.
 
@@ -146,10 +146,12 @@ hut builds submit .builds/release-linux-x86_64.yml \
   --visibility unlisted
 ```
 
-Download the successful build artifacts into `dist/downloads/`, then build and publish the SourceHut Pages archive:
+The successful build artifacts are also published by SourceHut as short-lived job artifacts. For durable hosted downloads, the build merges its Linux artifact with the current Pages manifest and runs `hut pages publish` automatically.
+
+For a local/manual pages publish, build and publish the SourceHut Pages archive:
 
 ```bash
-nix run .#build-pages
+nix run .#build-pages -- --include-existing-downloads
 nix run .#publish-pages
 ```
 

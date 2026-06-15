@@ -3,6 +3,13 @@
 ## Unreleased
 
 
+
+## v1.2.10 - 2026-06-15
+
+### Fixed
+
+- Publish SourceHut Linux downloads automatically.
+
 ## v1.2.9 - 2026-06-15
 
 ### Changed

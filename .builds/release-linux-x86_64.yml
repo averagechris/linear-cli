@@ -1,5 +1,6 @@
 image: nixos/unstable
 arch: x86_64
+oauth: PAGES:RW
 environment:
   NIX_CONFIG: "experimental-features = nix-command flakes"
 sources:
@@ -10,6 +11,12 @@ tasks:
       nix build .#release-artifact --out-link result-release-artifact
       mkdir -p ~/artifacts
       cp -p result-release-artifact/* ~/artifacts/
+      mkdir -p dist/downloads
+      cp -p result-release-artifact/* dist/downloads/
+  - publish: |
+      cd linear-cli
+      nix run .#build-pages -- --include-existing-downloads
+      nix run .#publish-pages
 artifacts:
-  - artifacts/linear-cli-v1.2.9-x86_64-linux.tar.gz
-  - artifacts/linear-cli-v1.2.9-x86_64-linux.tar.gz.sha256
+  - artifacts/linear-cli-v1.2.10-x86_64-linux.tar.gz
+  - artifacts/linear-cli-v1.2.10-x86_64-linux.tar.gz.sha256

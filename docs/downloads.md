@@ -25,9 +25,11 @@ dist/downloads/linear-cli-v1.2.8-aarch64-darwin.tar.gz
 dist/downloads/linear-cli-v1.2.8-aarch64-darwin.tar.gz.sha256
 ```
 
-## Build Linux artifact on SourceHut
+## Build and publish Linux artifact on SourceHut
 
-Submit the release build after updating `.builds/release-linux-x86_64.yml` for the new version:
+The SourceHut build manifest builds the Linux artifact, fetches existing hosted downloads from the current Pages manifest, regenerates the downloads page, and publishes it with `hut pages publish`. It uses build-scoped OAuth (`PAGES:RW`) rather than a checked-in token.
+
+Submit the release build after updating `.builds/release-linux-x86_64.yml` for the new version, or let the git.sr.ht integration run it after pushing `main`:
 
 ```bash
 hut builds submit .builds/release-linux-x86_64.yml \
@@ -36,13 +38,19 @@ hut builds submit .builds/release-linux-x86_64.yml \
   --visibility unlisted
 ```
 
-Download the successful job artifacts into `dist/downloads/` before publishing the pages archive.
+The successful job still exposes the Linux tarball and checksum as build artifacts, but the durable download URLs are the copies published to SourceHut Pages.
 
 ## Build and publish pages
 
 ```bash
 nix run .#build-pages
 nix run .#publish-pages
+```
+
+To merge locally-built artifacts with artifacts already hosted on Pages before publishing:
+
+```bash
+nix run .#build-pages -- --include-existing-downloads
 ```
 
 Defaults:

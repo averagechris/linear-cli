@@ -380,13 +380,15 @@
 
           domain="averagechris.srht.site"
           subdirectory="/linear-cli"
+          include_existing_downloads=0
 
           while [[ $# -gt 0 ]]; do
             case "$1" in
               --domain) domain="$2"; shift 2 ;;
               --subdirectory) subdirectory="$2"; shift 2 ;;
+              --include-existing-downloads) include_existing_downloads=1; shift ;;
               -h|--help)
-                printf 'usage: build-pages [--domain DOMAIN] [--subdirectory PATH]\n'
+                printf 'usage: build-pages [--domain DOMAIN] [--subdirectory PATH] [--include-existing-downloads]\n'
                 exit 0
                 ;;
               *) printf 'unknown argument: %s\n' "$1" >&2; exit 1 ;;
@@ -395,6 +397,7 @@
 
           export LINEAR_PAGES_DOMAIN="$domain"
           export LINEAR_PAGES_SUBDIRECTORY="$subdirectory"
+          export LINEAR_INCLUDE_EXISTING_DOWNLOADS="$include_existing_downloads"
 
           exec python3 - <<'PY'
           from __future__ import annotations
@@ -407,6 +410,8 @@
           import shutil
           import subprocess
           import tomllib
+          import urllib.error
+          import urllib.request
 
           repo = pathlib.Path.cwd()
           download_dir = repo / "dist" / "downloads"
@@ -419,6 +424,41 @@
           domain = os.environ["LINEAR_PAGES_DOMAIN"].rstrip("/")
           subdirectory = "/" + os.environ["LINEAR_PAGES_SUBDIRECTORY"].strip("/")
           base_url = f"https://{domain}{subdirectory}"
+          include_existing_downloads = os.environ["LINEAR_INCLUDE_EXISTING_DOWNLOADS"] == "1"
+
+          download_dir.mkdir(parents=True, exist_ok=True)
+
+          def include_existing_downloads_from_pages() -> None:
+              manifest_url = f"{base_url}/manifest.json"
+              try:
+                  with urllib.request.urlopen(manifest_url, timeout=30) as response:
+                      manifest = json.load(response)
+              except urllib.error.HTTPError as error:
+                  if error.code == 404:
+                      return
+                  raise
+              except urllib.error.URLError as error:
+                  raise SystemExit(f"failed to fetch existing downloads manifest {manifest_url}: {error}") from error
+
+              for artifact in manifest.get("artifacts", []):
+                  name = artifact.get("name")
+                  url = artifact.get("url")
+                  if not isinstance(name, str) or not isinstance(url, str):
+                      continue
+                  artifact_path = download_dir / name
+                  checksum_path = download_dir / f"{name}.sha256"
+                  if not artifact_path.exists():
+                      print(f"fetching existing download {name}")
+                      urllib.request.urlretrieve(url, artifact_path)
+                  if not checksum_path.exists():
+                      sha = artifact.get("sha256")
+                      if isinstance(sha, str) and sha:
+                          checksum_path.write_text(f"{sha}  {name}\n")
+                      else:
+                          urllib.request.urlretrieve(f"{url}.sha256", checksum_path)
+
+          if include_existing_downloads:
+              include_existing_downloads_from_pages()
 
           artifacts = sorted(download_dir.glob("*.tar.gz"), reverse=True)
           if not artifacts:
@@ -511,7 +551,7 @@
           <body>
             <h1>linear-cli downloads</h1>
             <p>A hardened Rust CLI for Linear.app.</p>
-            <p><a href="https://git.sr.ht/~averagechris/linear-cli">Source repository</a> · <a href="https://crates.io/crates/linear-cli">Crates.io</a></p>
+            <p><a href="https://git.sr.ht/~averagechris/linear-cli">Source repository</a></p>
 
             <h2>What's new in {html.escape(tag)}</h2>
             {markdownish_to_html(current_changelog())}
