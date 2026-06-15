@@ -114,7 +114,7 @@
           cargo clippy --locked --all-targets -- -D warnings
         '';
         ciTestScript = ''
-          cargo test --locked
+          RUST_TEST_THREADS=1 cargo test --locked
         '';
         ciSkillsRenderScript = ''
           exec bash ./scripts/render-skills.sh --check "$@"

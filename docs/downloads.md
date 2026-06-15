@@ -27,7 +27,7 @@ dist/downloads/linear-cli-v1.2.8-aarch64-darwin.tar.gz.sha256
 
 ## Build and publish Linux artifact on SourceHut
 
-The SourceHut build manifest builds the Linux artifact, fetches existing hosted downloads from the current Pages manifest, regenerates the downloads page, and publishes it with `hut pages publish`. It uses build-scoped OAuth (`PAGES:RW`) rather than a checked-in token.
+The SourceHut build manifest builds the Linux artifact, fetches existing hosted downloads from the current Pages manifest, regenerates the downloads page, and publishes it with `hut pages publish`. It uses build-scoped OAuth (`pages.sr.ht/PAGES:RW`) rather than a checked-in token.
 
 Submit the release build after updating `.builds/release-linux-x86_64.yml` for the new version, or let the git.sr.ht integration run it after pushing `main`:
 

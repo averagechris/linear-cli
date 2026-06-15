@@ -26,7 +26,7 @@ nix run .#release -- --version X.Y.Z --submit-linux-build
 ```
 
 - `--publish-pages` runs `hut pages publish` for `averagechris.srht.site` under `/linear-cli`.
-- `--submit-linux-build` submits `.builds/release-linux-x86_64.yml`; the build creates the Linux artifact, merges it with existing hosted downloads, and republishes SourceHut Pages using build-scoped `PAGES:RW` OAuth.
+- `--submit-linux-build` submits `.builds/release-linux-x86_64.yml`; the build creates the Linux artifact, merges it with existing hosted downloads, and republishes SourceHut Pages using build-scoped `pages.sr.ht/PAGES:RW` OAuth.
 
 Use the manual steps below when you need more control or are recovering from a partial release.
 

@@ -4,6 +4,14 @@
 
 
 
+
+## v1.2.11 - 2026-06-15
+
+### Fixed
+
+- Use service-qualified SourceHut Pages OAuth grant.
+- Publish SourceHut Linux downloads automatically.
+
 ## v1.2.10 - 2026-06-15
 
 ### Fixed
