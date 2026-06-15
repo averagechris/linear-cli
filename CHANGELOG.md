@@ -5,6 +5,14 @@
 
 
 
+
+## v1.2.12 - 2026-06-15
+
+### Fixed
+
+- Sort hosted downloads by semantic version.
+- Stabilize SourceHut release publishing.
+
 ## v1.2.11 - 2026-06-15
 
 ### Fixed

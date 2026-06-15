@@ -460,7 +460,14 @@
           if include_existing_downloads:
               include_existing_downloads_from_pages()
 
-          artifacts = sorted(download_dir.glob("*.tar.gz"), reverse=True)
+          def artifact_sort_key(path: pathlib.Path) -> tuple[int, int, int, str]:
+              match = re.match(r"linear-cli-v(\d+)\.(\d+)\.(\d+)-(.+)\.tar\.gz$", path.name)
+              if not match:
+                  return (-1, -1, -1, path.name)
+              major, minor, patch, platform = match.groups()
+              return (int(major), int(minor), int(patch), platform)
+
+          artifacts = sorted(download_dir.glob("*.tar.gz"), key=artifact_sort_key, reverse=True)
           if not artifacts:
               raise SystemExit(f"no download artifacts found in {download_dir}; run nix build .#release-artifact first")
 
