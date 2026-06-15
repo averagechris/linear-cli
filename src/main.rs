@@ -1798,13 +1798,12 @@ async fn handle_setup(output: &OutputOptions) -> Result<()> {
         anyhow::bail!("API key cannot be empty");
     }
 
-    config::set_api_key(&api_key)?;
-    println!("  API key saved.");
+    println!("  Validating API key...");
     println!();
 
     // Step 2: Validate the key and pick default team
     println!("Step 2: Default Team");
-    let client = api::LinearClient::new()?;
+    let client = api::LinearClient::with_api_key(api_key.clone())?;
 
     let teams_query = r#"
         query {
@@ -1818,47 +1817,44 @@ async fn handle_setup(output: &OutputOptions) -> Result<()> {
         }
     "#;
 
-    match client.query(teams_query, None).await {
-        Ok(data) => {
-            let teams = &data["data"]["teams"]["nodes"];
-            if let Some(teams_arr) = teams.as_array() {
-                if teams_arr.is_empty() {
-                    println!("  No teams found. Skipping default team.");
-                } else {
-                    println!("  Available teams:");
-                    for (i, team) in teams_arr.iter().enumerate() {
+    let data = client.query(teams_query, None).await?;
+
+    config::set_api_key(&api_key)?;
+    println!("  API key validated and saved.");
+
+    let teams = &data["data"]["teams"]["nodes"];
+    if let Some(teams_arr) = teams.as_array() {
+        if teams_arr.is_empty() {
+            println!("  No teams found. Skipping default team.");
+        } else {
+            println!("  Available teams:");
+            for (i, team) in teams_arr.iter().enumerate() {
+                let key = team["key"].as_str().unwrap_or("?");
+                let name = team["name"].as_str().unwrap_or("?");
+                println!("    {}. {} ({})", i + 1, name, key);
+            }
+            println!();
+            print!("  Select team number (or press Enter to skip): ");
+            io::stdout().flush()?;
+
+            let mut choice = String::new();
+            io::stdin().read_line(&mut choice)?;
+            let choice = choice.trim();
+
+            if !choice.is_empty() {
+                if let Ok(num) = choice.parse::<usize>() {
+                    if num >= 1 && num <= teams_arr.len() {
+                        let team = &teams_arr[num - 1];
                         let key = team["key"].as_str().unwrap_or("?");
-                        let name = team["name"].as_str().unwrap_or("?");
-                        println!("    {}. {} ({})", i + 1, name, key);
+                        println!("  Default team: {}", key);
+                        println!("  Tip: Use -t {} or set LINEAR_CLI_TEAM={}", key, key);
+                    } else {
+                        println!("  Invalid selection, skipping.");
                     }
-                    println!();
-                    print!("  Select team number (or press Enter to skip): ");
-                    io::stdout().flush()?;
-
-                    let mut choice = String::new();
-                    io::stdin().read_line(&mut choice)?;
-                    let choice = choice.trim();
-
-                    if !choice.is_empty() {
-                        if let Ok(num) = choice.parse::<usize>() {
-                            if num >= 1 && num <= teams_arr.len() {
-                                let team = &teams_arr[num - 1];
-                                let key = team["key"].as_str().unwrap_or("?");
-                                println!("  Default team: {}", key);
-                                println!("  Tip: Use -t {} or set LINEAR_CLI_TEAM={}", key, key);
-                            } else {
-                                println!("  Invalid selection, skipping.");
-                            }
-                        } else {
-                            println!("  Invalid input, skipping.");
-                        }
-                    }
+                } else {
+                    println!("  Invalid input, skipping.");
                 }
             }
-        }
-        Err(e) => {
-            println!("  Could not fetch teams (API key may be invalid): {}", e);
-            println!("  Run 'linear doctor --check-api' to diagnose.");
         }
     }
 
