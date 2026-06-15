@@ -16,6 +16,10 @@ use crate::pagination::paginate_nodes;
 use crate::text::truncate;
 use crate::types::Comment;
 
+fn safe_terminal_value(value: &str) -> String {
+    crate::text::sanitize_terminal_text(value)
+}
+
 #[derive(Subcommand)]
 pub enum CommentCommands {
     /// List comments for an issue
@@ -157,8 +161,8 @@ async fn list_comments(issue_ids: &[String], output: &OutputOptions) -> Result<(
         if idx > 0 {
             println!();
         }
-        let identifier = issue["identifier"].as_str().unwrap_or("");
-        let title = issue["title"].as_str().unwrap_or("");
+        let identifier = safe_terminal_value(issue["identifier"].as_str().unwrap_or(""));
+        let title = safe_terminal_value(issue["title"].as_str().unwrap_or(""));
 
         println!("{} {}", identifier.bold(), title);
         println!("{}", "-".repeat(50));
@@ -185,8 +189,8 @@ async fn list_comments(issue_ids: &[String], output: &OutputOptions) -> Result<(
             .iter()
             .filter_map(|v| serde_json::from_value::<Comment>(v.clone()).ok())
             .map(|c| {
-                let body_text = c.body.as_deref().unwrap_or("");
-                let truncated_body = truncate(body_text, width);
+                let body_text = safe_terminal_value(c.body.as_deref().unwrap_or(""));
+                let truncated_body = truncate(&body_text, width);
 
                 let created_at = c
                     .created_at
@@ -201,7 +205,7 @@ async fn list_comments(issue_ids: &[String], output: &OutputOptions) -> Result<(
                     author: c
                         .user
                         .as_ref()
-                        .map(|u| u.name.clone())
+                        .map(|u| safe_terminal_value(&u.name))
                         .unwrap_or_else(|| "Unknown".to_string()),
                     created_at,
                     body: truncated_body.replace('\n', " "),
@@ -228,38 +232,6 @@ fn comments_status(first_error: Option<anyhow::Error>, missing: &[String]) -> Re
         Ok(())
     } else {
         Err(CliError::not_found(format!("Issue(s) not found: {}", missing.join(", "))).into())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn comments_status_ok_when_nothing_failed() {
-        assert!(comments_status(None, &[]).is_ok());
-    }
-
-    #[test]
-    fn comments_status_notfound_when_only_missing() {
-        let err = comments_status(None, &["LIN-9".to_string()]).unwrap_err();
-        assert_eq!(err.downcast_ref::<CliError>().expect("CliError").code(), 2);
-    }
-
-    #[test]
-    fn comments_status_preserves_real_error_over_missing() {
-        let err = comments_status(
-            Some(
-                CliError::rate_limited("429")
-                    .with_retry_after(Some(5))
-                    .into(),
-            ),
-            &["LIN-9".to_string()],
-        )
-        .unwrap_err();
-        let cli = err.downcast_ref::<CliError>().expect("CliError");
-        assert_eq!(cli.code(), 4);
-        assert_eq!(cli.retry_after, Some(5));
     }
 }
 
@@ -355,8 +327,9 @@ async fn create_comment(issue_id: &str, body: &str, parent_id: Option<String>) -
 
     if result["data"]["commentCreate"]["success"].as_bool() == Some(true) {
         let comment = &result["data"]["commentCreate"]["comment"];
-        let issue_identifier = comment["issue"]["identifier"].as_str().unwrap_or("");
-        let issue_title = comment["issue"]["title"].as_str().unwrap_or("");
+        let issue_identifier =
+            safe_terminal_value(comment["issue"]["identifier"].as_str().unwrap_or(""));
+        let issue_title = safe_terminal_value(comment["issue"]["title"].as_str().unwrap_or(""));
 
         println!(
             "{} Comment added to {} {}",
@@ -367,15 +340,13 @@ async fn create_comment(issue_id: &str, body: &str, parent_id: Option<String>) -
         println!("  ID: {}", comment["id"].as_str().unwrap_or(""));
         println!(
             "  Author: {}",
-            comment["user"]["name"].as_str().unwrap_or("")
+            safe_terminal_value(comment["user"]["name"].as_str().unwrap_or(""))
         );
 
-        let body_preview = comment["body"]
-            .as_str()
-            .unwrap_or("")
-            .chars()
-            .take(80)
-            .collect::<String>();
+        let body_preview = truncate(
+            &safe_terminal_value(comment["body"].as_str().unwrap_or("")),
+            Some(80),
+        );
         if !body_preview.is_empty() {
             println!("  Body: {}", body_preview.dimmed());
         }
@@ -453,4 +424,44 @@ async fn delete_comment(id: &str, force: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_safe_terminal_value_removes_escape_sequences() {
+        assert_eq!(
+            safe_terminal_value("bad\u{1b}]52;c;ZXZpbA==\u{7}title"),
+            "badtitle"
+        );
+    }
+
+    #[test]
+    fn comments_status_ok_when_nothing_failed() {
+        assert!(comments_status(None, &[]).is_ok());
+    }
+
+    #[test]
+    fn comments_status_notfound_when_only_missing() {
+        let err = comments_status(None, &["LIN-9".to_string()]).unwrap_err();
+        assert_eq!(err.downcast_ref::<CliError>().expect("CliError").code(), 2);
+    }
+
+    #[test]
+    fn comments_status_preserves_real_error_over_missing() {
+        let err = comments_status(
+            Some(
+                CliError::rate_limited("429")
+                    .with_retry_after(Some(5))
+                    .into(),
+            ),
+            &["LIN-9".to_string()],
+        )
+        .unwrap_err();
+        let cli = err.downcast_ref::<CliError>().expect("CliError");
+        assert_eq!(cli.code(), 4);
+        assert_eq!(cli.retry_after, Some(5));
+    }
 }
