@@ -8,6 +8,8 @@ A fast, comprehensive command-line interface for [Linear](https://linear.app) bu
 
 ## Installation
 
+Hosted release downloads, checksums, and release notes are published at <https://averagechris.srht.site/linear-cli/>. See the [changelog](CHANGELOG.md) for version history and [hosted downloads docs](docs/downloads.md) for release artifact details.
+
 ```bash
 # From any Homebrew tap that packages this binary
 brew tap your-org/tap
@@ -63,6 +65,14 @@ To publish a new release tag for this fork after updating `Cargo.toml`'s version
 nix run .#release-tag
 ```
 
+To prepare the changelog, tag the release, build the local platform artifact, and generate the SourceHut Pages downloads archive in one deterministic flow:
+
+```bash
+nix run .#release -- --version X.Y.Z
+```
+
+Add `--publish-pages` to publish with `hut`, and `--submit-linux-build` to submit the SourceHut Linux build manifest.
+
 To build the macOS release artifact expected by a supported Homebrew tap build host:
 
 ```bash
@@ -70,6 +80,12 @@ nix build .#homebrew-artifact
 ```
 
 That build produces a `result/` directory containing platform-specific artifacts such as `linear-cli-v1.2.2-darwin-arm64.tar.gz` plus a matching `.sha256` file. See [docs/homebrew.md](docs/homebrew.md) for the release artifact contract and supported platform details.
+
+The cross-platform hosted-download artifact is available as:
+
+```bash
+nix build .#release-artifact
+```
 
 ## Quick Start
 

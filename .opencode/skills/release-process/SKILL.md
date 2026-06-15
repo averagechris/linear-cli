@@ -1,12 +1,34 @@
 ---
 name: release-process
-description: Review commits since the last SourceHut tag, choose the next semver version from Conventional Commit messages, and publish a release tag for this fork.
+description: Review commits since the last SourceHut tag, choose the next semver version from Conventional Commit messages, update changelog/download pages, build artifacts, and publish a release tag for this fork.
 allowed-tools: Bash, Read, Grep, Edit, Write
 ---
 
 # Release Process
 
 Use this skill when cutting a new release for this hardened fork.
+
+## Fast path
+
+For the normal deterministic release flow, create/use the jj release change and run:
+
+```bash
+nix run .#release -- --version X.Y.Z
+```
+
+This prepares `Cargo.toml`, `CHANGELOG.md`, and `.builds/release-linux-x86_64.yml`, runs validation, tags/pushes `vX.Y.Z`, builds the local `.#release-artifact`, copies it into `dist/downloads/`, and builds `dist/pages/linear-cli-pages.tar.gz` for SourceHut Pages.
+
+Optional flags:
+
+```bash
+nix run .#release -- --version X.Y.Z --publish-pages
+nix run .#release -- --version X.Y.Z --submit-linux-build
+```
+
+- `--publish-pages` runs `hut pages publish` for `averagechris.srht.site` under `/linear-cli`.
+- `--submit-linux-build` submits `.builds/release-linux-x86_64.yml`; download the successful SourceHut build artifacts into `dist/downloads/`, rebuild pages, and publish again so Linux tarballs are permanent on Pages rather than only build artifacts.
+
+Use the manual steps below when you need more control or are recovering from a partial release.
 
 ## 1. Find the last release tag
 
@@ -44,12 +66,19 @@ Create a new jj change for the version bump, update `Cargo.toml`, and describe i
 jj new -m 'chore: bump version to X.Y.Z'
 ```
 
-Then edit `Cargo.toml` to set `[package].version` to the new version.
+Then prepare release metadata:
+
+```bash
+nix run .#prepare-release -- --version X.Y.Z --revision @
+```
+
+This sets `[package].version`, updates `CHANGELOG.md`, and rewrites the Linux SourceHut build manifest artifact names for the new version.
 
 Verify:
 
 ```bash
 grep '^version = ' Cargo.toml
+grep '^## vX.Y.Z' CHANGELOG.md
 ```
 
 ## 5. Validate before tagging
@@ -98,7 +127,35 @@ jj bookmark set main --revision vX.Y.Z
 jj git push --remote origin --bookmark main
 ```
 
-## 8. Suggested prompts
+## 8. Build artifacts and pages
+
+Build the local platform tarball and checksum:
+
+```bash
+nix build .#release-artifact --out-link result-release-artifact
+mkdir -p dist/downloads
+cp -p result-release-artifact/* dist/downloads/
+```
+
+For Linux, submit a SourceHut build after `.builds/release-linux-x86_64.yml` has the release version:
+
+```bash
+hut builds submit .builds/release-linux-x86_64.yml \
+  --note 'linear-cli vX.Y.Z linux release' \
+  --tags 'linear-cli/vX.Y.Z/release' \
+  --visibility unlisted
+```
+
+Download the successful build artifacts into `dist/downloads/`, then build and publish the SourceHut Pages archive:
+
+```bash
+nix run .#build-pages
+nix run .#publish-pages
+```
+
+Pages default to `https://averagechris.srht.site/linear-cli/`. Keep `CHANGELOG.md`, the downloads page, and README links in sync.
+
+## 9. Suggested prompts
 
 - "Review commits since the last tag and tell me the next release version"
 - "Choose the next semver bump from Conventional Commit messages"

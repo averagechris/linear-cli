@@ -1,6 +1,7 @@
 /target
 result
 result-*
+/dist
 ._*
 .DS_Store
 

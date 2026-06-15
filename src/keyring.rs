@@ -35,8 +35,8 @@ fn verify_stored_secret(
     expected: &str,
     secret_kind: &str,
 ) -> Result<()> {
-    let verify_entry = entry(service_name, profile)
-        .context("Failed to create keyring entry for verification")?;
+    let verify_entry =
+        entry(service_name, profile).context("Failed to create keyring entry for verification")?;
 
     match verify_entry.get_password() {
         Ok(actual) if actual == expected => Ok(()),
