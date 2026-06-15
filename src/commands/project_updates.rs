@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_project_id, LinearClient};
 use crate::display_options;
@@ -58,19 +58,21 @@ pub enum ProjectUpdateCommands {
     },
 }
 
-#[derive(Tabled)]
 struct UpdateRow {
-    #[tabled(rename = "Health")]
     health: String,
-    #[tabled(rename = "Author")]
     author: String,
-    #[tabled(rename = "Date")]
     date: String,
-    #[tabled(rename = "Body")]
     body: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(UpdateRow {
+    health => "Health",
+    author => "Author",
+    date => "Date",
+    body => "Body",
+    id => "ID",
+});
 
 fn format_health(health: Option<&str>) -> String {
     match health {

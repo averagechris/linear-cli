@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::cache::{Cache, CacheType};
 
@@ -17,19 +17,21 @@ pub enum CacheCommands {
     Status,
 }
 
-#[derive(Tabled)]
 struct CacheStatusRow {
-    #[tabled(rename = "Type")]
     cache_type: String,
-    #[tabled(rename = "Valid")]
     valid: String,
-    #[tabled(rename = "Age")]
     age: String,
-    #[tabled(rename = "Size")]
     size: String,
-    #[tabled(rename = "Items")]
     items: String,
 }
+
+impl_tabled!(CacheStatusRow {
+    cache_type => "Type",
+    valid => "Valid",
+    age => "Age",
+    size => "Size",
+    items => "Items",
+});
 
 pub async fn handle(cmd: CacheCommands) -> Result<()> {
     match cmd {

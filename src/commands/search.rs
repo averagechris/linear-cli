@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Subcommand;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::display_options;
@@ -31,31 +31,35 @@ pub enum SearchCommands {
     },
 }
 
-#[derive(Tabled)]
 struct IssueRow {
-    #[tabled(rename = "Identifier")]
     identifier: String,
-    #[tabled(rename = "Title")]
     title: String,
-    #[tabled(rename = "State")]
     state: String,
-    #[tabled(rename = "Priority")]
     priority: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
 
-#[derive(Tabled)]
+impl_tabled!(IssueRow {
+    identifier => "Identifier",
+    title => "Title",
+    state => "State",
+    priority => "Priority",
+    id => "ID",
+});
+
 struct ProjectRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Status")]
     status: String,
-    #[tabled(rename = "Labels")]
     labels: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(ProjectRow {
+    name => "Name",
+    status => "Status",
+    labels => "Labels",
+    id => "ID",
+});
 
 pub async fn handle(cmd: SearchCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::display_options;
@@ -77,17 +77,19 @@ pub enum AttachmentCommands {
     },
 }
 
-#[derive(Tabled)]
 struct AttachmentRow {
-    #[tabled(rename = "Title")]
     title: String,
-    #[tabled(rename = "URL")]
     url: String,
-    #[tabled(rename = "Source")]
     source: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(AttachmentRow {
+    title => "Title",
+    url => "URL",
+    source => "Source",
+    id => "ID",
+});
 
 pub async fn handle(cmd: AttachmentCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

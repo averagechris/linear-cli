@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Subcommand;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::output::{print_json_owned, OutputOptions};
@@ -20,17 +20,19 @@ pub enum HistoryCommands {
     },
 }
 
-#[derive(Tabled)]
 struct HistoryRow {
-    #[tabled(rename = "Date")]
     date: String,
-    #[tabled(rename = "Actor")]
     actor: String,
-    #[tabled(rename = "Action")]
     action: String,
-    #[tabled(rename = "Details")]
     details: String,
 }
+
+impl_tabled!(HistoryRow {
+    date => "Date",
+    actor => "Actor",
+    action => "Action",
+    details => "Details",
+});
 
 pub async fn handle(cmd: HistoryCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

@@ -7,7 +7,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_team_id, LinearClient};
 use crate::display_options;
@@ -128,19 +128,21 @@ pub enum TemplateCommands {
     },
 }
 
-#[derive(Tabled)]
 struct TemplateRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Title Prefix")]
     title_prefix: String,
-    #[tabled(rename = "Team")]
     team: String,
-    #[tabled(rename = "Priority")]
     priority: String,
-    #[tabled(rename = "Labels")]
     labels: String,
 }
+
+impl_tabled!(TemplateRow {
+    name => "Name",
+    title_prefix => "Title Prefix",
+    team => "Team",
+    priority => "Priority",
+    labels => "Labels",
+});
 
 fn templates_path() -> Result<PathBuf> {
     let config_dir = dirs::config_dir()
@@ -465,19 +467,21 @@ fn delete_template(name: &str, force: bool, output: &OutputOptions) -> Result<()
 
 // --- Remote (Linear workspace) templates ---
 
-#[derive(Tabled)]
 struct RemoteTemplateRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Type")]
     template_type: String,
-    #[tabled(rename = "Team")]
     team: String,
-    #[tabled(rename = "Created")]
     created: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(RemoteTemplateRow {
+    name => "Name",
+    template_type => "Type",
+    team => "Team",
+    created => "Created",
+    id => "ID",
+});
 
 async fn remote_list_templates(template_type: Option<&str>, output: &OutputOptions) -> Result<()> {
     let client = LinearClient::new()?;

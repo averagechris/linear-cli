@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::{json, Value};
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::cache::{Cache, CacheType};
@@ -77,17 +77,19 @@ pub enum LabelCommands {
     },
 }
 
-#[derive(Tabled)]
 struct LabelRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Group")]
     group: String,
-    #[tabled(rename = "Color")]
     color: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(LabelRow {
+    name => "Name",
+    group => "Group",
+    color => "Color",
+    id => "ID",
+});
 
 fn validate_label_type(label_type: &str) -> Result<()> {
     match label_type {

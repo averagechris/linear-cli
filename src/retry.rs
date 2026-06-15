@@ -1,5 +1,5 @@
 use crate::error::CliError;
-use rand::Rng;
+use rand::RngExt;
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -52,7 +52,7 @@ impl RetryConfig {
         // Add ±25% jitter to avoid thundering herd
         let jitter_range = (delay_ms / 4) as i64;
         let jitter = if jitter_range > 0 {
-            rand::thread_rng().gen_range(-jitter_range..=jitter_range)
+            rand::rng().random_range(-jitter_range..=jitter_range)
         } else {
             0
         };

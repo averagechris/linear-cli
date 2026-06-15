@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::{json, Value};
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_team_id, resolve_user_id, LinearClient};
 use crate::cache::{Cache, CacheOptions, CacheType};
@@ -32,15 +32,17 @@ pub enum UserCommands {
     },
 }
 
-#[derive(Tabled)]
 struct UserRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Email")]
     email: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(UserRow {
+    name => "Name",
+    email => "Email",
+    id => "ID",
+});
 
 pub async fn handle(cmd: UserCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Subcommand;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::output::{print_json, print_json_owned, OutputOptions};
@@ -58,19 +58,21 @@ pub enum InitiativeCommands {
     },
 }
 
-#[derive(Tabled)]
 struct InitiativeRow {
-    #[tabled(rename = "ID")]
     id: String,
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Status")]
     status: String,
-    #[tabled(rename = "Progress")]
     progress: String,
-    #[tabled(rename = "Projects")]
     project_count: String,
 }
+
+impl_tabled!(InitiativeRow {
+    id => "ID",
+    name => "Name",
+    status => "Status",
+    progress => "Progress",
+    project_count => "Projects",
+});
 
 pub async fn handle(
     cmd: InitiativeCommands,

@@ -6,8 +6,28 @@
 //! - Linux: Secret Service (requires D-Bus and a keyring daemon)
 
 use anyhow::{Context, Result};
+use keyring_core::{Entry, Error as KeyringError};
+use std::sync::OnceLock;
 
 const SERVICE_NAME: &str = "linear-cli";
+
+fn ensure_keyring_store() -> Result<()> {
+    static INIT: OnceLock<std::result::Result<(), String>> = OnceLock::new();
+
+    match INIT.get_or_init(|| {
+        // Preserve the prior Linux behavior from the keyring 3.x configuration:
+        // prefer Secret Service over kernel keyutils for the native store.
+        keyring::use_native_store(true).map_err(|e| e.to_string())
+    }) {
+        Ok(()) => Ok(()),
+        Err(e) => anyhow::bail!("Failed to initialize OS keyring store: {}", e),
+    }
+}
+
+fn entry(service_name: &str, profile: &str) -> Result<Entry> {
+    ensure_keyring_store()?;
+    Entry::new(service_name, profile).context("Failed to create keyring entry")
+}
 
 fn verify_stored_secret(
     service_name: &str,
@@ -15,7 +35,7 @@ fn verify_stored_secret(
     expected: &str,
     secret_kind: &str,
 ) -> Result<()> {
-    let verify_entry = keyring::Entry::new(service_name, profile)
+    let verify_entry = entry(service_name, profile)
         .context("Failed to create keyring entry for verification")?;
 
     match verify_entry.get_password() {
@@ -24,7 +44,7 @@ fn verify_stored_secret(
             "{} was written to the keyring but could not be read back unchanged",
             secret_kind
         ),
-        Err(keyring::Error::NoEntry) => anyhow::bail!(
+        Err(KeyringError::NoEntry) => anyhow::bail!(
             "{} could not be read back from the keyring after writing it",
             secret_kind
         ),
@@ -38,20 +58,18 @@ fn verify_stored_secret(
 /// Get an API key from the keyring for a profile.
 /// Returns Ok(None) if no key is stored, Ok(Some(key)) if found.
 pub fn get_key(profile: &str) -> Result<Option<String>> {
-    let entry =
-        keyring::Entry::new(SERVICE_NAME, profile).context("Failed to create keyring entry")?;
+    let entry = entry(SERVICE_NAME, profile)?;
 
     match entry.get_password() {
         Ok(password) => Ok(Some(password)),
-        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(KeyringError::NoEntry) => Ok(None),
         Err(e) => Err(e).context("Failed to read API key from keyring"),
     }
 }
 
 /// Store an API key in the keyring for a profile.
 pub fn set_key(profile: &str, api_key: &str) -> Result<()> {
-    let entry =
-        keyring::Entry::new(SERVICE_NAME, profile).context("Failed to create keyring entry")?;
+    let entry = entry(SERVICE_NAME, profile)?;
 
     entry
         .set_password(api_key)
@@ -65,12 +83,11 @@ pub fn set_key(profile: &str, api_key: &str) -> Result<()> {
 /// Delete an API key from the keyring for a profile.
 /// Returns Ok(()) even if no key was stored.
 pub fn delete_key(profile: &str) -> Result<()> {
-    let entry =
-        keyring::Entry::new(SERVICE_NAME, profile).context("Failed to create keyring entry")?;
+    let entry = entry(SERVICE_NAME, profile)?;
 
     match entry.delete_credential() {
         Ok(()) => Ok(()),
-        Err(keyring::Error::NoEntry) => Ok(()), // Already gone, that's fine
+        Err(KeyringError::NoEntry) => Ok(()), // Already gone, that's fine
         Err(e) => Err(e).context("Failed to delete API key from keyring"),
     }
 }
@@ -80,18 +97,18 @@ pub fn is_available() -> bool {
     let probe_account = format!("__linear_cli_probe_{}__", std::process::id());
     let probe_secret = format!("probe-{}", std::process::id());
 
-    match keyring::Entry::new(SERVICE_NAME, &probe_account) {
-        Ok(entry) => {
-            if entry.set_password(&probe_secret).is_err() {
+    match entry(SERVICE_NAME, &probe_account) {
+        Ok(probe_entry) => {
+            if probe_entry.set_password(&probe_secret).is_err() {
                 return false;
             }
 
-            let verified = keyring::Entry::new(SERVICE_NAME, &probe_account)
+            let verified = entry(SERVICE_NAME, &probe_account)
                 .ok()
                 .and_then(|verify_entry| verify_entry.get_password().ok())
                 .map(|actual| actual == probe_secret)
                 .unwrap_or(false);
-            let _ = entry.delete_credential();
+            let _ = probe_entry.delete_credential();
             verified
         }
         Err(_) => false,
@@ -102,20 +119,18 @@ const OAUTH_SERVICE_NAME: &str = "linear-cli-oauth";
 
 /// Get OAuth tokens JSON from keyring for a profile
 pub fn get_oauth_tokens(profile: &str) -> Result<Option<String>> {
-    let entry = keyring::Entry::new(OAUTH_SERVICE_NAME, profile)
-        .context("Failed to create keyring entry")?;
+    let entry = entry(OAUTH_SERVICE_NAME, profile)?;
 
     match entry.get_password() {
         Ok(json) => Ok(Some(json)),
-        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(KeyringError::NoEntry) => Ok(None),
         Err(e) => Err(e).context("Failed to read OAuth tokens from keyring"),
     }
 }
 
 /// Store OAuth tokens JSON in keyring for a profile
 pub fn set_oauth_tokens(profile: &str, json: &str) -> Result<()> {
-    let entry = keyring::Entry::new(OAUTH_SERVICE_NAME, profile)
-        .context("Failed to create keyring entry")?;
+    let entry = entry(OAUTH_SERVICE_NAME, profile)?;
     entry
         .set_password(json)
         .context("Failed to store OAuth tokens in keyring")?;
@@ -127,11 +142,10 @@ pub fn set_oauth_tokens(profile: &str, json: &str) -> Result<()> {
 
 /// Delete OAuth tokens from keyring for a profile
 pub fn delete_oauth_tokens(profile: &str) -> Result<()> {
-    let entry = keyring::Entry::new(OAUTH_SERVICE_NAME, profile)
-        .context("Failed to create keyring entry")?;
+    let entry = entry(OAUTH_SERVICE_NAME, profile)?;
     match entry.delete_credential() {
         Ok(()) => Ok(()),
-        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(KeyringError::NoEntry) => Ok(()),
         Err(e) => Err(e).context("Failed to delete OAuth tokens from keyring"),
     }
 }

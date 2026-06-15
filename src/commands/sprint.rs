@@ -3,7 +3,7 @@ use clap::Subcommand;
 use colored::Colorize;
 use futures::stream::{self, StreamExt};
 use serde_json::{json, Value};
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_team_id, LinearClient};
 use crate::output::{print_json, print_json_owned, OutputOptions};
@@ -900,19 +900,21 @@ fn render_burndown(
     lines.join("\n")
 }
 
-#[derive(Tabled)]
 struct VelocityRow {
-    #[tabled(rename = "Sprint")]
     sprint: String,
-    #[tabled(rename = "Issues")]
     issues: String,
-    #[tabled(rename = "Points")]
     points: String,
-    #[tabled(rename = "Done %")]
     done_pct: String,
-    #[tabled(rename = "Duration")]
     duration: String,
 }
+
+impl_tabled!(VelocityRow {
+    sprint => "Sprint",
+    issues => "Issues",
+    points => "Points",
+    done_pct => "Done %",
+    duration => "Duration",
+});
 
 async fn fetch_past_cycles_for_velocity(
     client: &LinearClient,

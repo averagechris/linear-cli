@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::{Subcommand, ValueEnum};
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::output::{print_json, print_json_owned, OutputOptions};
@@ -70,17 +70,19 @@ pub enum RelationCommands {
     },
 }
 
-#[derive(Tabled)]
 struct RelationRow {
-    #[tabled(rename = "Type")]
     relation_type: String,
-    #[tabled(rename = "Issue")]
     issue: String,
-    #[tabled(rename = "Title")]
     title: String,
-    #[tabled(rename = "Status")]
     status: String,
 }
+
+impl_tabled!(RelationRow {
+    relation_type => "Type",
+    issue => "Issue",
+    title => "Title",
+    status => "Status",
+});
 
 pub async fn handle(cmd: RelationCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

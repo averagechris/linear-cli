@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::{json, Value};
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_state_id, resolve_team_id, LinearClient};
 use crate::cache::{Cache, CacheType};
@@ -53,19 +53,21 @@ pub enum StatusCommands {
     },
 }
 
-#[derive(Tabled)]
 struct StatusRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Type")]
     status_type: String,
-    #[tabled(rename = "Color")]
     color: String,
-    #[tabled(rename = "Position")]
     position: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(StatusRow {
+    name => "Name",
+    status_type => "Type",
+    color => "Color",
+    position => "Position",
+    id => "ID",
+});
 
 pub async fn handle(cmd: StatusCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

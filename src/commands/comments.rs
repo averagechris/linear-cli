@@ -3,7 +3,7 @@ use clap::Subcommand;
 use colored::Colorize;
 use futures::stream::{self, StreamExt};
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::display_options;
@@ -57,17 +57,19 @@ pub enum CommentCommands {
     },
 }
 
-#[derive(Tabled)]
 struct CommentRow {
-    #[tabled(rename = "Author")]
     author: String,
-    #[tabled(rename = "Created")]
     created_at: String,
-    #[tabled(rename = "Body")]
     body: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(CommentRow {
+    author => "Author",
+    created_at => "Created",
+    body => "Body",
+    id => "ID",
+});
 
 pub async fn handle(cmd: CommentCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

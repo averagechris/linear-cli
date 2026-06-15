@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::display_options;
@@ -60,19 +60,21 @@ pub enum TimeCommands {
     },
 }
 
-#[derive(Tabled)]
 struct TimeEntryRow {
-    #[tabled(rename = "ID")]
     id: String,
-    #[tabled(rename = "Issue")]
     issue: String,
-    #[tabled(rename = "Duration")]
     duration: String,
-    #[tabled(rename = "Date")]
     date: String,
-    #[tabled(rename = "User")]
     user: String,
 }
+
+impl_tabled!(TimeEntryRow {
+    id => "ID",
+    issue => "Issue",
+    duration => "Duration",
+    date => "Date",
+    user => "User",
+});
 
 pub async fn handle(cmd: TimeCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

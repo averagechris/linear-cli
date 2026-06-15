@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::{json, Value};
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_team_id, LinearClient};
 use crate::cache::{Cache, CacheType};
@@ -90,15 +90,17 @@ pub enum TeamCommands {
     },
 }
 
-#[derive(Tabled)]
 struct TeamRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Key")]
     key: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(TeamRow {
+    name => "Name",
+    key => "Key",
+    id => "ID",
+});
 
 pub async fn handle(cmd: TeamCommands, output: &OutputOptions) -> Result<()> {
     match cmd {
@@ -425,17 +427,19 @@ mod tests {
     }
 }
 
-#[derive(Tabled)]
 struct MemberRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Email")]
     email: String,
-    #[tabled(rename = "Role")]
     role: String,
-    #[tabled(rename = "Active")]
     active: String,
 }
+
+impl_tabled!(MemberRow {
+    name => "Name",
+    email => "Email",
+    role => "Role",
+    active => "Active",
+});
 
 async fn list_members(team: &str, output: &OutputOptions) -> Result<()> {
     let client = LinearClient::new()?;

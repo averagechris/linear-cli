@@ -2,7 +2,7 @@ use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{console::Term, Confirm, Input, Select};
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::display_options;
@@ -16,17 +16,19 @@ struct Team {
     key: String,
 }
 
-#[derive(Tabled)]
 struct IssueRow {
-    #[tabled(rename = "ID")]
     identifier: String,
-    #[tabled(rename = "Title")]
     title: String,
-    #[tabled(rename = "State")]
     state: String,
-    #[tabled(rename = "Priority")]
     priority: String,
 }
+
+impl_tabled!(IssueRow {
+    identifier => "ID",
+    title => "Title",
+    state => "State",
+    priority => "Priority",
+});
 
 enum MenuAction {
     CreateIssue,

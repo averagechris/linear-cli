@@ -1,3 +1,23 @@
+macro_rules! impl_tabled {
+    ($type:ty { $( $field:ident => $header:expr ),+ $(,)? }) => {
+        impl tabled::Tabled for $type {
+            const LENGTH: usize = impl_tabled!(@count $( $field ),+);
+
+            fn fields(&self) -> Vec<std::borrow::Cow<'_, str>> {
+                vec![$(std::borrow::Cow::Owned(self.$field.to_string())),+]
+            }
+
+            fn headers() -> Vec<std::borrow::Cow<'static, str>> {
+                vec![$(std::borrow::Cow::Borrowed($header)),+]
+            }
+        }
+    };
+    (@count $( $field:ident ),+ ) => {
+        <[()]>::len(&[$(impl_tabled!(@replace $field)),+])
+    };
+    (@replace $field:ident) => { () };
+}
+
 mod api;
 mod cache;
 mod commands;

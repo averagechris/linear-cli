@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_team_id, LinearClient};
 use crate::cache::{Cache, CacheType};
@@ -90,23 +90,25 @@ pub enum CycleCommands {
     },
 }
 
-#[derive(Tabled)]
 struct CycleRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Number")]
     number: String,
-    #[tabled(rename = "Status")]
     status: String,
-    #[tabled(rename = "Start Date")]
     start_date: String,
-    #[tabled(rename = "End Date")]
     end_date: String,
-    #[tabled(rename = "Progress")]
     progress: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(CycleRow {
+    name => "Name",
+    number => "Number",
+    status => "Status",
+    start_date => "Start Date",
+    end_date => "End Date",
+    progress => "Progress",
+    id => "ID",
+});
 
 pub async fn handle(cmd: CycleCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

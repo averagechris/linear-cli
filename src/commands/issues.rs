@@ -3,7 +3,7 @@ use clap::Subcommand;
 use colored::Colorize;
 use serde_json::{json, Map, Value};
 use std::io::{self, BufRead};
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{
     resolve_label_id, resolve_project_id, resolve_state_id, resolve_team_id, resolve_user_id,
@@ -305,19 +305,21 @@ pub enum IssueCommands {
     },
 }
 
-#[derive(Tabled)]
 struct IssueRow {
-    #[tabled(rename = "ID")]
     identifier: String,
-    #[tabled(rename = "Title")]
     title: String,
-    #[tabled(rename = "State")]
     state: String,
-    #[tabled(rename = "Priority")]
     priority: String,
-    #[tabled(rename = "Assignee")]
     assignee: String,
 }
+
+impl_tabled!(IssueRow {
+    identifier => "ID",
+    title => "Title",
+    state => "State",
+    priority => "Priority",
+    assignee => "Assignee",
+});
 
 pub async fn handle(
     cmd: IssueCommands,

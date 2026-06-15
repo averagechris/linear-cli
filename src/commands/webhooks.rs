@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_team_id, LinearClient};
 use crate::display_options;
@@ -134,21 +134,23 @@ Use a tunnel service (ngrok, cloudflare tunnel) and pass --url with your public 
     },
 }
 
-#[derive(Tabled)]
 struct WebhookRow {
-    #[tabled(rename = "Label")]
     label: String,
-    #[tabled(rename = "URL")]
     url: String,
-    #[tabled(rename = "Enabled")]
     enabled: String,
-    #[tabled(rename = "Events")]
     events: String,
-    #[tabled(rename = "Team")]
     team: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(WebhookRow {
+    label => "Label",
+    url => "URL",
+    enabled => "Enabled",
+    events => "Events",
+    team => "Team",
+    id => "ID",
+});
 
 pub async fn handle(cmd: WebhookCommands, output: &OutputOptions) -> Result<()> {
     match cmd {
@@ -636,7 +638,7 @@ async fn rotate_secret(id: &str, show_secret: bool, output: &OutputOptions) -> R
 
 /// Verify HMAC-SHA256 signature from Linear webhook using constant-time comparison
 fn verify_signature(secret: &str, body: &[u8], signature: &str) -> bool {
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     use sha2::Sha256;
 
     let Ok(mut mac) = Hmac::<Sha256>::new_from_slice(secret.as_bytes()) else {
@@ -1022,7 +1024,7 @@ mod tests {
         let secret = "test-secret";
         let body = b"hello world";
 
-        use hmac::{Hmac, Mac};
+        use hmac::{Hmac, KeyInit, Mac};
         use sha2::Sha256;
         let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
         mac.update(body);
@@ -1041,7 +1043,7 @@ mod tests {
         let secret = "test-secret";
         let body = b"";
 
-        use hmac::{Hmac, Mac};
+        use hmac::{Hmac, KeyInit, Mac};
         use sha2::Sha256;
         let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
         mac.update(body);

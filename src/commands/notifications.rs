@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::display_options;
@@ -42,19 +42,21 @@ pub enum NotificationCommands {
     ArchiveAll,
 }
 
-#[derive(Tabled)]
 struct NotificationRow {
-    #[tabled(rename = "Type")]
     notification_type: String,
-    #[tabled(rename = "Issue")]
     issue: String,
-    #[tabled(rename = "Title")]
     title: String,
-    #[tabled(rename = "Created")]
     created_at: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(NotificationRow {
+    notification_type => "Type",
+    issue => "Issue",
+    title => "Title",
+    created_at => "Created",
+    id => "ID",
+});
 
 pub async fn handle(cmd: NotificationCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

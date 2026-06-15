@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::display_options;
@@ -13,15 +13,17 @@ use crate::pagination::paginate_nodes;
 use crate::text::truncate;
 use crate::types::Favorite;
 
-#[derive(Tabled)]
 struct FavoriteRow {
-    #[tabled(rename = "Type")]
     fav_type: String,
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(FavoriteRow {
+    fav_type => "Type",
+    name => "Name",
+    id => "ID",
+});
 
 #[derive(Subcommand, Debug)]
 pub enum FavoriteCommands {

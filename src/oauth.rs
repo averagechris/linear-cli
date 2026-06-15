@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use rand::Rng;
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::{BufRead, BufReader, Write};
@@ -37,8 +37,8 @@ pub struct PkceChallenge {
 impl PkceChallenge {
     pub fn generate() -> Self {
         // Generate 32 random bytes, base64url-encode to get verifier
-        let mut rng = rand::thread_rng();
-        let random_bytes: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
+        let mut rng = rand::rng();
+        let random_bytes: Vec<u8> = (0..32).map(|_| rng.random::<u8>()).collect();
         let verifier = base64_url_encode(&random_bytes);
 
         // S256: SHA256(verifier) then base64url-encode
@@ -383,8 +383,8 @@ pub fn is_expired(tokens: &OAuthTokens) -> bool {
 
 /// Generate a random state string for CSRF protection
 pub fn generate_state() -> String {
-    let mut rng = rand::thread_rng();
-    let bytes: Vec<u8> = (0..16).map(|_| rng.gen::<u8>()).collect();
+    let mut rng = rand::rng();
+    let bytes: Vec<u8> = (0..16).map(|_| rng.random::<u8>()).collect();
     base64_url_encode(&bytes)
 }
 

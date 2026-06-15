@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_team_id, resolve_view_id, LinearClient};
 use crate::display_options;
@@ -97,21 +97,23 @@ pub enum ViewCommands {
     },
 }
 
-#[derive(Tabled)]
 struct ViewRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Shared")]
     shared: String,
-    #[tabled(rename = "Owner")]
     owner: String,
-    #[tabled(rename = "Team")]
     team: String,
-    #[tabled(rename = "Updated")]
     updated: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(ViewRow {
+    name => "Name",
+    shared => "Shared",
+    owner => "Owner",
+    team => "Team",
+    updated => "Updated",
+    id => "ID",
+});
 
 pub async fn handle(cmd: ViewCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

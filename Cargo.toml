@@ -19,37 +19,38 @@ path = "src/main.rs"
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "json", "rustls-tls-native-roots", "stream", "system-proxy"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["charset", "form", "http2", "json", "rustls", "stream", "system-proxy"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-colored = "2"
-tabled = "0.16"
-dirs = "5"
-toml = "0.8"
+colored = "3"
+tabled = { version = "0.21", default-features = false, features = ["std"] }
+dirs = "6"
+toml = "1"
 anyhow = "1"
-dialoguer = "0.11"
+dialoguer = "0.12"
 futures = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
-rand = "0.8"
+rand = "0.10"
 csv = "1"
-gix = { version = "0.81", features = ["blocking-network-client", "blocking-http-transport-reqwest-native-tls"] }
-sha2 = "0.10"
+gix = { version = "0.84", features = ["blocking-network-client", "blocking-http-transport-reqwest-native-tls"] }
+sha2 = "0.11"
 open = "5"
 url = "2"
 base64 = "0.22"
-hmac = "0.12"
+hmac = "0.13"
 hex = "0.4"
 tempfile = "3"
+keyring-core = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-keyring = { version = "3", features = ["apple-native"] }
+keyring = "4"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-keyring = { version = "3", features = ["windows-native"] }
+keyring = "4"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
+keyring = "4"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

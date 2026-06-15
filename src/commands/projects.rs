@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_project_id, resolve_team_id, resolve_user_id, LinearClient};
 use crate::cache::{Cache, CacheType};
@@ -200,17 +200,19 @@ pub enum ProjectCommands {
     },
 }
 
-#[derive(Tabled)]
 struct ProjectRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Status")]
     status: String,
-    #[tabled(rename = "Labels")]
     labels: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(ProjectRow {
+    name => "Name",
+    status => "Status",
+    labels => "Labels",
+    id => "ID",
+});
 
 pub async fn handle(cmd: ProjectCommands, output: &OutputOptions) -> Result<()> {
     match cmd {
@@ -1236,13 +1238,15 @@ async fn list_project_members(id: &str, output: &OutputOptions) -> Result<()> {
     let proj_name = project["name"].as_str().unwrap_or(id);
     let width = display_options().max_width(30);
 
-    #[derive(Tabled)]
     struct MemberRow {
-        #[tabled(rename = "Name")]
         name: String,
-        #[tabled(rename = "Email")]
         email: String,
     }
+
+    impl_tabled!(MemberRow {
+        name => "Name",
+        email => "Email",
+    });
 
     let rows: Vec<MemberRow> = members
         .iter()

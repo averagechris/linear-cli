@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Subcommand;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::output::{print_json, OutputOptions};
@@ -31,17 +31,19 @@ pub enum TriageCommands {
     },
 }
 
-#[derive(Tabled)]
 struct TriageRow {
-    #[tabled(rename = "ID")]
     identifier: String,
-    #[tabled(rename = "Title")]
     title: String,
-    #[tabled(rename = "Created")]
     created: String,
-    #[tabled(rename = "Team")]
     team: String,
 }
+
+impl_tabled!(TriageRow {
+    identifier => "ID",
+    title => "Title",
+    created => "Created",
+    team => "Team",
+});
 
 pub async fn handle(cmd: TriageCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

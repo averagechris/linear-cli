@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::output::{print_json, print_json_owned, OutputOptions};
@@ -52,17 +52,19 @@ pub enum RoadmapCommands {
     },
 }
 
-#[derive(Tabled)]
 struct RoadmapRow {
-    #[tabled(rename = "ID")]
     id: String,
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Description")]
     description: String,
-    #[tabled(rename = "Projects")]
     project_count: String,
 }
+
+impl_tabled!(RoadmapRow {
+    id => "ID",
+    name => "Name",
+    description => "Description",
+    project_count => "Projects",
+});
 
 pub async fn handle(
     cmd: RoadmapCommands,

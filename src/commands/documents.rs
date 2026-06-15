@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::json;
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_project_id, LinearClient};
 use crate::display_options;
@@ -84,17 +84,19 @@ pub enum DocumentCommands {
     },
 }
 
-#[derive(Tabled)]
 struct DocumentRow {
-    #[tabled(rename = "Title")]
     title: String,
-    #[tabled(rename = "Project")]
     project: String,
-    #[tabled(rename = "Updated")]
     updated: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(DocumentRow {
+    title => "Title",
+    project => "Project",
+    updated => "Updated",
+    id => "ID",
+});
 
 pub async fn handle(cmd: DocumentCommands, output: &OutputOptions) -> Result<()> {
     match cmd {

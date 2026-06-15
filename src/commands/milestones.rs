@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 use serde_json::{json, Value};
-use tabled::{Table, Tabled};
+use tabled::Table;
 
 use crate::api::{resolve_project_id, LinearClient};
 use crate::display_options;
@@ -69,15 +69,17 @@ pub enum MilestoneCommands {
     },
 }
 
-#[derive(Tabled)]
 struct MilestoneRow {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Target Date")]
     target_date: String,
-    #[tabled(rename = "ID")]
     id: String,
 }
+
+impl_tabled!(MilestoneRow {
+    name => "Name",
+    target_date => "Target Date",
+    id => "ID",
+});
 
 pub async fn handle(cmd: MilestoneCommands, output: &OutputOptions) -> Result<()> {
     match cmd {
