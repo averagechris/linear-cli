@@ -199,7 +199,7 @@
               return sorted(tags, key=version_key)[-1]
 
           def commit_summaries(baseline: str | None, revision: str) -> list[str]:
-              revset = f"{baseline}::{revision}" if baseline else revision
+              revset = f"{baseline}..{revision}" if baseline else revision
               output = run(
                   [
                       "jj", "log", "-r", revset, "--no-graph", "--color=never",
@@ -772,9 +772,10 @@
           fi
 
           if [[ $tag_release -eq 1 ]]; then
-            nix run .#release-tag -- --revision "$revision"
+            release_revision="$(jj log -r "$revision" --no-graph --color=never -T 'commit_id.short()')"
+            nix run .#release-tag -- --revision "$release_revision"
             if [[ -d .jj ]]; then
-              jj bookmark set main --revision "$revision" --no-pager --color=never
+              jj bookmark set main --revision "$release_revision" --no-pager --color=never
               jj git push --remote origin --bookmark main --no-pager --color=never
             fi
           fi

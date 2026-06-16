@@ -7,6 +7,13 @@
 
 
 
+
+## v1.2.14 - 2026-06-15
+
+### Fixed
+
+- Stabilize release flow bookmark updates.
+
 ## v1.2.13 - 2026-06-15
 
 ### Fixed
