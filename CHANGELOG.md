@@ -6,6 +6,14 @@
 
 
 
+
+## v1.2.13 - 2026-06-15
+
+### Fixed
+
+- Group hosted downloads by release.
+- Sort hosted downloads by semantic version.
+
 ## v1.2.12 - 2026-06-15
 
 ### Fixed

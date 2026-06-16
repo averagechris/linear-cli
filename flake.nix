@@ -517,29 +517,92 @@
                   out.append("</ul>")
               return "\n".join(out)
 
+          def artifact_info(path: pathlib.Path) -> dict[str, str]:
+              match = re.match(r"linear-cli-(v\d+\.\d+\.\d+)-(.+)\.tar\.gz$", path.name)
+              if not match:
+                  return {"version": "other", "platform": path.name.removesuffix(".tar.gz")}
+              release_version, platform = match.groups()
+              return {"version": release_version, "platform": platform}
+
+          def platform_label(platform: str) -> str:
+              labels = {
+                  "aarch64-darwin": "macOS Apple silicon",
+                  "x86_64-linux": "Linux x86_64",
+              }
+              return labels.get(platform, platform.replace("-", " "))
+
+          def build_count_label(count: int) -> str:
+              return f"{count} build" if count == 1 else f"{count} builds"
+
           latest = artifacts[0]
           latest_checksum = latest.name + ".sha256"
-          artifact_cards = []
+          artifact_groups: dict[str, list[dict[str, str]]] = {}
           manifest = {"version": tag, "artifacts": []}
           for artifact in artifacts:
               checksum_path = download_dir / f"{artifact.name}.sha256"
               if not checksum_path.exists():
                   raise SystemExit(f"missing checksum for {artifact.name}: {checksum_path}")
               sha = checksum_path.read_text().split()[0]
-              artifact_cards.append(f"""
-            <div class="artifact">
-              <h3>{html.escape(artifact.name)}</h3>
-              <ul>
-                <li><a href="downloads/{html.escape(artifact.name)}">Download tarball</a></li>
-                <li><a href="downloads/{html.escape(artifact.name)}.sha256">SHA-256 checksum</a></li>
-              </ul>
-              <pre><code>{html.escape(sha)}  {html.escape(artifact.name)}</code></pre>
-            </div>""")
+              info = artifact_info(artifact)
+              artifact_groups.setdefault(info["version"], []).append({
+                  "name": artifact.name,
+                  "platform": info["platform"],
+                  "sha": sha,
+              })
               manifest["artifacts"].append({
                   "name": artifact.name,
                   "url": f"{base_url}/downloads/{artifact.name}",
                   "sha256": sha,
               })
+
+          latest_version = tag if tag in artifact_groups else artifact_info(latest)["version"]
+
+          def render_build(build: dict[str, str]) -> str:
+              name = build["name"]
+              sha = build["sha"]
+              return f"""
+                <article class="build">
+                  <h4>{html.escape(platform_label(build['platform']))}</h4>
+                  <p class="filename"><code>{html.escape(name)}</code></p>
+                  <p class="download-links">
+                    <a class="primary-link" href="downloads/{html.escape(name)}">Download tarball</a>
+                    <a href="downloads/{html.escape(name)}.sha256">Checksum</a>
+                  </p>
+                  <details>
+                    <summary>SHA-256</summary>
+                    <pre><code>{html.escape(sha)}  {html.escape(name)}</code></pre>
+                  </details>
+                </article>"""
+
+          def render_release(release_version: str, builds: list[dict[str, str]], *, latest_release: bool) -> str:
+              builds_html = "".join(render_build(build) for build in builds)
+              label = "Latest release" if latest_release else "Release"
+              latest_badge = "<span class=\"badge\">Latest</span>" if latest_release else ""
+              title_html = f"{html.escape(release_version)} {latest_badge}" if latest_release else html.escape(release_version)
+              class_names = "release latest" if latest_release else "release"
+              return f"""
+              <section class="{class_names}">
+                <div class="release-heading">
+                  <div>
+                    <p class="eyebrow">{label}</p>
+                    <h3>{title_html}</h3>
+                  </div>
+                  <span class="build-count">{html.escape(build_count_label(len(builds)))}</span>
+                </div>
+                <div class="build-grid">
+                  {builds_html}
+                </div>
+              </section>"""
+
+          latest_downloads = render_release(latest_version, artifact_groups[latest_version], latest_release=True)
+          previous_downloads = "".join(
+              render_release(release_version, builds, latest_release=False)
+              for release_version, builds in artifact_groups.items()
+              if release_version != latest_version
+          )
+          previous_downloads_section = f"""
+            <h3 class="previous-heading">Previous releases</h3>
+            {previous_downloads}""" if previous_downloads else ""
 
           (site_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
           (site_dir / "index.html").write_text(f"""<!doctype html>
@@ -549,10 +612,25 @@
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>linear-cli downloads</title>
             <style>
-              body {{ font-family: system-ui, sans-serif; max-width: 820px; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }}
+              body {{ font-family: system-ui, sans-serif; max-width: 920px; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }}
               code, pre {{ background: #f4f4f4; padding: 0.15rem 0.3rem; border-radius: 4px; }}
               pre {{ padding: 1rem; overflow-x: auto; }}
-              .artifact {{ margin: 1rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }}
+              .release {{ margin: 1rem 0 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 12px; }}
+              .release.latest {{ background: #f7fbff; border-color: #9bc7f5; box-shadow: 0 1px 8px rgba(32, 105, 180, 0.12); }}
+              .release-heading {{ display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }}
+              .release-heading h3 {{ margin: 0.1rem 0 0; }}
+              .eyebrow {{ color: #555; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em; margin: 0; text-transform: uppercase; }}
+              .badge, .build-count {{ border-radius: 999px; display: inline-block; font-size: 0.8rem; font-weight: 700; padding: 0.15rem 0.5rem; white-space: nowrap; }}
+              .badge {{ background: #0b66c3; color: white; margin-left: 0.35rem; vertical-align: middle; }}
+              .build-count {{ background: #eee; color: #333; }}
+              .build-grid {{ display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }}
+              .build {{ background: white; border: 1px solid #e5e5e5; border-radius: 10px; padding: 1rem; }}
+              .build h4 {{ margin: 0 0 0.5rem; }}
+              .filename {{ margin: 0 0 0.75rem; overflow-wrap: anywhere; }}
+              .download-links {{ display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.75rem 0; }}
+              .primary-link {{ font-weight: 700; }}
+              details pre {{ margin-bottom: 0; }}
+              .previous-heading {{ margin-top: 2rem; }}
             </style>
           </head>
           <body>
@@ -564,8 +642,9 @@
             {markdownish_to_html(current_changelog())}
 
             <h2>Binary downloads</h2>
-            <p>Current packaged version: <code>{html.escape(tag)}</code></p>
-            {"".join(artifact_cards)}
+            <p>Choose the build for your platform. The latest release is highlighted first; older releases are grouped below by version.</p>
+            {latest_downloads}
+            {previous_downloads_section}
 
             <h2>Manual install</h2>
             <pre><code>curl -LO {html.escape(base_url)}/downloads/{html.escape(latest.name)}
@@ -694,6 +773,10 @@
 
           if [[ $tag_release -eq 1 ]]; then
             nix run .#release-tag -- --revision "$revision"
+            if [[ -d .jj ]]; then
+              jj bookmark set main --revision "$revision" --no-pager --color=never
+              jj git push --remote origin --bookmark main --no-pager --color=never
+            fi
           fi
 
           if [[ $build_artifact -eq 1 ]]; then
@@ -704,7 +787,7 @@
           fi
 
           if [[ $build_pages -eq 1 ]]; then
-            nix run .#build-pages -- --domain "$domain" --subdirectory "$subdirectory"
+            nix run .#build-pages -- --domain "$domain" --subdirectory "$subdirectory" --include-existing-downloads
           fi
 
           if [[ $publish_pages -eq 1 ]]; then
@@ -999,7 +1082,25 @@
             ci-skills-render
             mkdir -p "$out"
           '';
+        # `nix fmt` invokes the formatter app without path arguments. Alejandra
+        # treats no arguments as "format stdin", which fails on empty stdin, so
+        # keep the formatter as Alejandra but default it to formatting the repo.
+        nix-formatter = pkgs.writeShellApplication {
+          name = "alejandra";
+          runtimeInputs = with pkgs; [
+            alejandra
+          ];
+          text = ''
+            if [[ $# -eq 0 ]]; then
+              exec alejandra .
+            fi
+
+            exec alejandra "$@"
+          '';
+        };
       in {
+        formatter = nix-formatter;
+
         packages =
           {
             default = linear;

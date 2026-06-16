@@ -18,5 +18,5 @@ tasks:
       nix run .#build-pages -- --include-existing-downloads
       nix run .#publish-pages
 artifacts:
-  - artifacts/linear-cli-v1.2.12-x86_64-linux.tar.gz
-  - artifacts/linear-cli-v1.2.12-x86_64-linux.tar.gz.sha256
+  - artifacts/linear-cli-v1.2.13-x86_64-linux.tar.gz
+  - artifacts/linear-cli-v1.2.13-x86_64-linux.tar.gz.sha256
