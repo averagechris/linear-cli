@@ -8,6 +8,21 @@
 
 
 
+
+## v1.3.0 - 2026-06-25
+
+### Added
+
+- Stream issue comment events.
+
+### Changed
+
+- Assert real version output.
+
+### Documentation
+
+- Streamline help and agent skills.
+
 ## v1.2.14 - 2026-06-15
 
 ### Fixed

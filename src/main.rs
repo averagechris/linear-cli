@@ -841,6 +841,7 @@ enum ConfigCommands {
 }
 
 #[derive(Subcommand)]
+#[allow(clippy::large_enum_variant)]
 enum WatchCommands {
     /// Watch an issue for updates
     Issue {

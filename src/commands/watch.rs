@@ -307,7 +307,7 @@ pub async fn watch_comments(opts: WatchCommentsOptions, output: &OutputOptions) 
 
     let interval_secs = opts.interval_secs;
     let refresh_issues_interval_secs = opts.refresh_issues_interval_secs.max(interval_secs);
-    let comment_limit = opts.comment_limit.max(1).min(100);
+    let comment_limit = opts.comment_limit.clamp(1, 100);
     let client = LinearClient::new()?;
     let mut state = load_watch_state(opts.state_file.as_ref())?;
     let parsed_since = parse_watch_since(&opts.since)?;
