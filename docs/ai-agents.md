@@ -106,6 +106,25 @@ SCHEMAS: JSON samples in docs/json/
 | Search | `s issues` | `linear-cli s issues "auth bug"` |
 | Bulk ops | `b update` | `linear-cli b update -s Done LIN-1 LIN-2` |
 | Fetch upload | `up fetch` | `linear-cli up fetch URL -f image.png` |
+| Watch comments | `watch comments` | `linear-cli watch comments --mine --output ndjson` |
+
+## Comment Watch Streams
+
+For agent daemons that react to Linear or synced external comments, use
+`watch comments` with NDJSON and pipe the event stream into your own process:
+
+```bash
+linear-cli watch comments --mine --source slack --output ndjson \
+  | ./agent-comment-router
+```
+
+The CLI does not invoke commands itself. Each NDJSON line is a complete event
+with issue, comment, author, parent comment, URL, labels, assignee, and external
+sync metadata. Use `--source SERVICE` for synced sources such as Slack or
+`--comment-filter field=value|field!=value|field~=value` for dot-path filters,
+for example `--comment-filter 'comment.body~=@agent'`. Add `--state-file PATH`
+when running under launchd/systemd/supervisord so restarts do not replay already
+seen comments.
 
 ## One-Liner Setup
 

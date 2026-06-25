@@ -52,6 +52,7 @@ use output::print_json_owned;
 use output::{parse_filters, JsonOutputOptions, OutputOptions, SortOrder};
 use pagination::PaginationOptions;
 use std::io::{self, IsTerminal, Write};
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
 /// Output format for command results
@@ -694,11 +695,14 @@ Detects issue ID from branch names like:
         action: webhooks::WebhookCommands,
     },
     /// Watch for updates (polling)
+    #[command(alias = "w")]
     #[command(after_help = r#"EXAMPLES:
     linear watch issue LIN-123             # Watch single issue
     linear watch issue LIN-123 --interval 30  # Poll every 30 seconds
     linear watch project PROJECT_ID        # Watch a project
-    linear watch team ENG                  # Watch a team"#)]
+    linear watch team ENG                  # Watch a team
+    linear watch comments LIN-123 --output ndjson
+    linear watch comments --mine --source slack --output ndjson"#)]
     Watch {
         #[command(subcommand)]
         action: WatchCommands,
@@ -880,6 +884,78 @@ enum WatchCommands {
         /// Polling interval in seconds
         #[arg(short, long, default_value = "10")]
         interval: u64,
+    },
+    /// Watch issue comments and emit new comment events
+    #[command(after_help = r#"EXAMPLES:
+    linear watch comments EPD-9545 --output ndjson
+    linear watch comments --mine --source slack --output ndjson
+    linear watch comments --team EPD --state "In Progress" --interval 10 --output ndjson
+    linear watch comments --mine --comment-filter comment.body~=@agent --output ndjson
+
+PIPE CONTRACT:
+    For automation, prefer --output ndjson and pipe events into another process.
+    The CLI does not spawn commands itself; each output line is a complete JSON
+    event with issue, comment, author, and external sync metadata."#)]
+    Comments {
+        /// Issue identifiers to watch. Omit to select issues with filters like --mine or --team.
+        issue_ids: Vec<String>,
+        /// Polling interval in seconds (minimum 5)
+        #[arg(short, long, default_value = "10")]
+        interval: u64,
+        /// Refresh interval for filtered issue sets in seconds (minimum interval)
+        #[arg(long, default_value = "60")]
+        refresh_issues_interval: u64,
+        /// Show only my assigned issues (shortcut for --assignee me)
+        #[arg(long)]
+        mine: bool,
+        /// Filter watched issues by team name, key, or ID
+        #[arg(short, long)]
+        team: Option<String>,
+        /// Filter watched issues by state name or ID
+        #[arg(short, long)]
+        state: Option<String>,
+        /// Filter watched issues by assignee (user ID, name, email, or "me")
+        #[arg(short, long)]
+        assignee: Option<String>,
+        /// Filter watched issues by project name
+        #[arg(long)]
+        project: Option<String>,
+        /// Filter watched issues by label name
+        #[arg(short, long)]
+        label: Option<String>,
+        /// Filter watched issues by full-text searchable content
+        #[arg(long)]
+        search: Option<String>,
+        /// Apply a saved custom view's issue filters
+        #[arg(long)]
+        view: Option<String>,
+        /// Watch issues where the current user is subscribed
+        #[arg(long)]
+        subscribed: bool,
+        /// Watch issues created by the current user
+        #[arg(long)]
+        created_by_me: bool,
+        /// Include archived issues in filtered issue selection
+        #[arg(long)]
+        archived: bool,
+        /// Filter emitted comments by external sync service (repeat or comma-separate, e.g. slack,github)
+        #[arg(long, value_delimiter = ',')]
+        source: Vec<String>,
+        /// Filter emitted events with dot-path expressions: field=value, field!=value, field~=value
+        #[arg(long = "comment-filter")]
+        comment_filters: Vec<String>,
+        /// Emit existing matching comments on startup instead of only future comments
+        #[arg(long)]
+        replay_existing: bool,
+        /// Emit existing comments newer than this time on startup (now, -1h, -24h, RFC3339)
+        #[arg(long, default_value = "now", allow_hyphen_values = true)]
+        since: String,
+        /// Persist seen comment IDs in this JSON state file
+        #[arg(long)]
+        state_file: Option<PathBuf>,
+        /// Number of recent comments to fetch per issue on each poll
+        #[arg(long, default_value = "20")]
+        comment_limit: i64,
     },
 }
 
@@ -1149,6 +1225,55 @@ async fn run_command(
             }
             WatchCommands::Team { team, interval } => {
                 watch::watch_team(&team, interval, output).await?
+            }
+            WatchCommands::Comments {
+                issue_ids,
+                interval,
+                refresh_issues_interval,
+                mine,
+                team,
+                state,
+                assignee,
+                project,
+                label,
+                search,
+                view,
+                subscribed,
+                created_by_me,
+                archived,
+                source,
+                comment_filters,
+                replay_existing,
+                since,
+                state_file,
+                comment_limit,
+            } => {
+                watch::watch_comments(
+                    watch::WatchCommentsOptions {
+                        issue_ids,
+                        interval_secs: interval,
+                        refresh_issues_interval_secs: refresh_issues_interval,
+                        mine,
+                        team,
+                        state,
+                        assignee,
+                        project,
+                        label,
+                        search,
+                        view,
+                        subscribed,
+                        created_by_me,
+                        include_archived: archived,
+                        sources: source,
+                        comment_filters,
+                        replay_existing,
+                        since,
+                        state_file,
+                        comment_limit,
+                    },
+                    output,
+                )
+                .await?
             }
         },
         Commands::Relations { action } => relations::handle(action, output).await?,

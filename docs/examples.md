@@ -84,6 +84,43 @@ linear-cli s issues "authentication bug"
 linear-cli s projects "backend" --limit 10
 ```
 
+## Watch Comments for Automation
+
+`linear-cli watch comments` polls Linear comments and emits one event for each
+new matching comment. For daemonized workflows, prefer NDJSON and pipe the
+stream into your own process; the CLI intentionally does not provide an `--exec`
+mode.
+
+```bash
+# Watch specific issues for future comments
+linear-cli watch comments LIN-123 LIN-456 --output ndjson
+
+# Watch my assigned issues and react to comments synced from an external service
+linear-cli watch comments --mine --source slack --output ndjson \
+  | ./handle-linear-comment
+
+# Watch a filtered issue set and only emit comments that mention an agent
+linear-cli watch comments --team ENG --state "In Progress" \
+  --comment-filter 'comment.body~=@agent' \
+  --output ndjson
+
+# Watch issues you participate in or that match text search filters
+linear-cli watch comments --subscribed --search oauth --output ndjson
+
+# Persist de-dupe state across daemon restarts
+linear-cli watch comments --mine --output ndjson \
+  --state-file ~/.cache/linear-cli/watch-comments-mine.json
+
+# Backfill recent comments, then continue watching
+linear-cli watch comments LIN-123 --since -1h --output ndjson
+```
+
+Each NDJSON line is a complete JSON event with enough context for downstream
+routing: issue identifier/title/url/team/state/assignee/labels, comment
+id/body/url/parent/author, and external sync metadata under `source`, including
+`source.syncedServices` and `source.externalThread` when Linear has synced the
+comment from another system.
+
 ## Uploads
 
 Download attachments and images from Linear issues/comments:

@@ -231,7 +231,7 @@ pub fn filter_values(values: &mut Vec<Value>, filters: &[FilterExpr]) {
     values.retain(|value| matches_filters(value, filters));
 }
 
-fn matches_filters(value: &Value, filters: &[FilterExpr]) -> bool {
+pub fn matches_filters(value: &Value, filters: &[FilterExpr]) -> bool {
     filters.iter().all(|filter| {
         let mut current = value;
         for part in &filter.path {

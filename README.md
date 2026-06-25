@@ -367,13 +367,32 @@ linear-cli wh listen --port 8080                 # Start local listener
 
 ### Watch Mode
 
-Poll for real-time changes to issues, projects, or teams.
+Poll for real-time changes to issues, projects, teams, or issue comments. For
+automation, use comment watch with NDJSON and pipe events into your own process;
+the CLI does not spawn commands itself.
 
 ```bash
 linear-cli watch issue LIN-123                   # Watch an issue
 linear-cli w project PROJECT_ID                  # Watch a project
 linear-cli w team ENG                            # Watch a team
+
+linear-cli watch comments LIN-123 --output ndjson
+linear-cli watch comments --mine --source slack --output ndjson \
+  | ./handle-linear-comment
+linear-cli watch comments --team ENG --state "In Progress" \
+  --comment-filter 'comment.body~=@agent' --output ndjson
+linear-cli watch comments --search oauth --subscribed --output ndjson
 ```
+
+Comment watch events include the issue, comment body, author, parent comment,
+Linear URL, labels, assignee, and external sync metadata such as
+`source.syncedServices` and `source.externalThread`. Use `--source SERVICE` to
+filter by an external sync service (for example `slack`) without making Slack a
+special case, use issue selectors like `--mine`, `--subscribed`, `--search`, or
+`--view`, or use `--comment-filter field=value|field!=value|field~=value` for
+dot-path event filters. By default startup seeds the current comment set and
+emits only future comments; add `--replay-existing` or `--since -1h` to backfill,
+and `--state-file PATH` to persist seen comment IDs across daemon restarts.
 
 ### Triage
 
@@ -634,7 +653,7 @@ For OpenCode project-local skills, this repo also exposes `.opencode/skills/`. R
 - **Import/Export** with round-trip CSV and JSON support
 - **Sprint planning** with progress bars, burndown charts, velocity tracking, and carry-over between cycles
 - **Webhook listener** with HMAC-SHA256 signature verification
-- **Watch mode** for real-time polling on issues, projects, and teams
+- **Watch mode** for real-time polling on issues, projects, teams, and comment streams
 - **Custom views** that can be applied to issue and project lists
 - **Bulk operations** for updating, assigning, and labeling multiple issues
 - **Git and Jujutsu (jj)** support for branch management and PR creation
@@ -670,7 +689,7 @@ For OpenCode project-local skills, this repo also exposes `.opencode/skills/`. R
 | Dynamic completions | No | No | bash/zsh/fish/pwsh |
 | Issue workflow actions | No | No | assign, move, transfer, close, archive |
 | Bulk operations | No | No | Yes |
-| Watch mode | No | No | issue, project, team |
+| Watch mode | No | No | issue, project, team, comments |
 | Raw GraphQL API | No | No | query + mutate |
 | Git + jj support | No | No | Yes |
 | Interactive TUI | No | No | Yes |
