@@ -1,82 +1,23 @@
 ## Linear Integration
 
-Use `linear-cli` for all Linear.app operations. Do NOT use Linear MCP tools - CLI is 10-50x more token-efficient.
+Use `linear` for Linear.app operations. Do not use Linear MCP tools.
 
-### Quick Commands
+Start with:
+- `linear common` for common tasks
+- `linear agent` for JSON/scripting patterns
+- `linear <command> --help` for full syntax
 
-| Task | Command |
-|------|---------|
-| List issues | `linear-cli i list` |
-| Create issue | `linear-cli i create "Title" -t TEAM -p 2` |
-| View issue | `linear-cli i get LIN-123` |
-| Get multiple | `linear-cli i get LIN-1 LIN-2 LIN-3` |
-| Start work | `linear-cli i start LIN-123 --checkout` |
-| Update status | `linear-cli i update LIN-123 -s Done` |
-| Create PR | `linear-cli g pr LIN-123` |
-| Search | `linear-cli s issues "query"` |
-| Get context | `linear-cli context` |
-| Get comments | `linear-cli cm list ISSUE_ID --output json` |
-| Download upload | `linear-cli up fetch URL -f file.png` |
+Common commands:
+- `linear i list --output json --compact --fields identifier,title,state.name`
+- `linear i get LIN-123 --output json --compact`
+- `linear context --output json --compact`
+- `linear i create "Title" -t TEAM --id-only`
+- `linear i update LIN-123 -s Done --dry-run`
+- `linear i start LIN-123 --checkout`
+- `linear cm list ISSUE_ID --output json --compact`
+- `linear g pr LIN-123 --draft`
+- `linear s issues "query"`
+- `linear up fetch URL -f file.png`
 
-### Agent-Friendly Options
-
-| Flag | Purpose |
-|------|---------|
-| `--output json` | Machine-readable JSON output |
-| `--compact` | Compact JSON output (no pretty formatting) |
-| `--fields a,b,c` | Limit JSON output to selected fields (supports dot paths) |
-| `--sort field` | Sort JSON array output by field (default: identifier/id) |
-| `--order asc|desc` | Sort order for JSON array output |
-| `--quiet` | Suppress decorative output |
-| `--id-only` | Only output created/updated ID |
-| `--api-key KEY` | Override API key for this invocation |
-| `--dry-run` | Preview without executing (create) |
-| `-` (stdin) | Read description/IDs from pipe |
-
-### Examples for Agents
-
-```bash
-# Get current issue from branch
-linear-cli context --output json
-
-# Create and get ID for chaining
-linear-cli i create "Bug" -t ENG --id-only
-
-# Quiet create, capture ID
-ID=$(linear-cli i create "Task" -t ENG -q --id-only)
-
-# Preview without creating
-linear-cli i create "Test" -t ENG --dry-run
-
-# Batch fetch multiple issues
-linear-cli i get LIN-1 LIN-2 LIN-3 --output json
-
-# Pipe description from file
-cat desc.md | linear-cli i create "Title" -t ENG -d -
-
-# JSON input for issue create/update
-cat issue.json | linear-cli i create "Title" -t ENG --data -
-
-# Structured error handling
-linear-cli i get INVALID --output json  # Returns {"error": true, ...}
-
-# Token-saving JSON output
-linear-cli i list --output json --fields identifier,title,state.name --compact
-
-# Default JSON output for agent sessions
-LINEAR_CLI_OUTPUT=json linear-cli i list
-
-# Agent harness summary
-linear-cli agent
-```
-
-### Exit Codes
-- `0` = Success
-- `1` = General error
-- `2` = Not found
-- `3` = Auth error
-- `4` = Rate limited
-
-### Tips
-- Use short aliases: `i` (issues), `p` (projects), `g` (git), `s` (search), `cm` (comments), `ctx` (context)
-- Run `linear-cli <command> --help` for full options
+Useful flags: `--output json|ndjson`, `--compact`, `--fields`, `--filter`, `--limit`, `--sort`, `--order`, `--quiet`, `--fail-on-empty`; use `--dry-run` and `--id-only` only where command help documents support.
+Exit codes: `0` success, `1` error, `2` not found, `3` auth, `4` rate limited.

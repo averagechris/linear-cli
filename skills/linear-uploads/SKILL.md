@@ -4,53 +4,19 @@ description: Download attachments and images from Linear issues. Use when fetchi
 allowed-tools: Bash Read
 ---
 
-# Linear Uploads
+# Uploads
 
-Download attachments and images from Linear issues using `linear`.
+Download Linear upload URLs so agents can inspect attachments/images.
 
-## Download to File
-
-```bash
-# Download image/attachment to file
-linear up fetch "https://uploads.linear.app/..." -f image.png
-
-# Download to temp directory
-linear up fetch "https://uploads.linear.app/..." -f /tmp/screenshot.png
-```
-
-## Output to Stdout
+## Start here
 
 ```bash
-# Pipe to other tools
-linear up fetch "https://uploads.linear.app/..." | base64
-
-# Redirect to file
-linear up fetch "https://uploads.linear.app/..." > file.png
+linear up fetch URL -f /tmp/linear-upload.png
+linear up fetch URL > file.bin
+linear cm list LIN-123 --output json --compact --fields body,url
 ```
 
-## Finding Upload URLs
-
-Upload URLs are found in:
-- Issue descriptions (`linear i get LIN-123 --output json`)
-- Comments (`linear cm list LIN-123 --output json`)
-
-URL pattern: `https://uploads.linear.app/{org}/{upload}/{filename}`
-
-## View Images (AI Agents)
-
-Since Claude is multimodal, download then read:
-
-```bash
-# 1. Download to temp file
-linear up fetch "https://uploads.linear.app/..." -f /tmp/screenshot.png
-
-# 2. Use Read tool on the file
-# Claude can view images directly
-```
-
-## Tips
-
-- Requires valid authentication via keyring or `--api-key`
-- Use `-f` / `--file` to specify output filename
-- Without `-f`, outputs raw bytes to stdout
-- URLs must be from `uploads.linear.app`
+## Agent notes
+- Use `-f` when the next tool needs a path to an image/file.
+- Comments and issue bodies may contain the upload URLs to fetch.
+- Full syntax and less-common flags: `linear up fetch --help`.

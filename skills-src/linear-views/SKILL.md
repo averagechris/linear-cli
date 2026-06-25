@@ -4,39 +4,20 @@ description: Manage custom views - create, list, apply saved views. Use when wor
 allowed-tools: Bash
 ---
 
-# Custom Views
+# Views
+
+Use saved Linear views and manage CLI custom views.
+
+## Start here
 
 ```bash
-# List all custom views
-{{CLI_PROGRAM}} v list
-{{CLI_PROGRAM}} v list --shared              # Shared views only
-
-# Get view details
-{{CLI_PROGRAM}} v get "My View"
-
-# Create a view
-{{CLI_PROGRAM}} v create "Bug Triage" --shared
-
-# Update a view
-{{CLI_PROGRAM}} v update VIEW_ID --name "Renamed"
-
-# Delete a view
-{{CLI_PROGRAM}} v delete VIEW_ID --force
-
-# Apply view to issue list
-{{CLI_PROGRAM}} i list --view "Bug Triage"
-{{CLI_PROGRAM}} p list --view "Active Projects"
+{{CLI_PROGRAM}} views list
+{{CLI_PROGRAM}} views get "My Sprint" --output json --compact
+{{CLI_PROGRAM}} i list --view "My Sprint"
+{{CLI_PROGRAM}} views create "Team Bugs" --team ENG --filter-json filters.json
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--shared` | Shared views only |
-| `--name NAME` | View name |
-| `--view NAME` | Apply view filter (on issues/projects list) |
-| `--output json` | JSON output |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} views create --help`, `{{CLI_PROGRAM}} i list --help`.

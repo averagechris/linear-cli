@@ -6,26 +6,16 @@ allowed-tools: Bash
 
 # Triage
 
+Work the triage inbox.
+
+## Start here
+
 ```bash
-# List triage issues (unassigned, no project)
-linear tr list
-linear tr list -t ENG            # Filter by team
-linear tr list --output json
-
-# Claim issue (assign to self, move to backlog)
-linear tr claim LIN-123
-
-# Snooze issue
-linear tr snooze LIN-123 --duration 1d   # Snooze 1 day
-linear tr snooze LIN-123 --duration 1w   # Snooze 1 week
+linear triage list -t ENG
+linear triage list -t ENG --output json --compact
+linear triage claim LIN-123
+linear triage snooze LIN-123 -d 1w
 ```
 
-## Duration Shortcuts
-
-`1d`, `2d`, `1w`, `2w`, `1m`
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--output json` | JSON output |
+## Agent notes
+- Full syntax and less-common flags: `linear triage list --help`, `linear triage claim --help`.

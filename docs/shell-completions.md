@@ -1,49 +1,15 @@
 # Shell Completions
 
-Enable tab completions for your shell.
-
-## Bash
+Generate static completions, or dynamic completions when you want Linear-backed values such as teams, users, and statuses.
 
 ```bash
-# Create completions directory if needed
-mkdir -p ~/.bash_completion.d
+linear completions static bash > ~/.bash_completion.d/linear
+linear completions static zsh > ~/.zfunc/_linear
+linear completions static fish > ~/.config/fish/completions/linear.fish
+linear completions static powershell > linear.ps1
 
-# Generate and install completions
-linear-cli completions bash > ~/.bash_completion.d/linear-cli
-
-# Add to ~/.bashrc if not already present
-echo 'source ~/.bash_completion.d/linear-cli' >> ~/.bashrc
-source ~/.bashrc
+linear completions dynamic bash
+linear completions dynamic zsh
 ```
 
-## Zsh
-
-```bash
-# Create completions directory if needed
-mkdir -p ~/.zsh/completions
-
-# Generate completions
-linear-cli completions zsh > ~/.zsh/completions/_linear-cli
-
-# Add to ~/.zshrc if not already present
-echo 'fpath=(~/.zsh/completions $fpath)' >> ~/.zshrc
-echo 'autoload -Uz compinit && compinit' >> ~/.zshrc
-source ~/.zshrc
-```
-
-## Fish
-
-```bash
-# Generate and install completions
-linear-cli completions fish > ~/.config/fish/completions/linear-cli.fish
-```
-
-## PowerShell
-
-```powershell
-# Generate completions
-linear-cli completions powershell > $HOME\linear-cli.ps1
-
-# Add to your PowerShell profile
-Add-Content $PROFILE '. $HOME\linear-cli.ps1'
-```
+Shell setup is standard for each shell: put the generated file on the shell completion path and reload the shell.

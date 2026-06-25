@@ -6,36 +6,18 @@ allowed-tools: Bash
 
 # Attachments
 
+List, link, create, update, and delete issue attachments.
+
+## Start here
+
 ```bash
-# List attachments on an issue
-{{CLI_PROGRAM}} att list SCW-123
-{{CLI_PROGRAM}} att list SCW-123 --output json
-
-# Get attachment details
-{{CLI_PROGRAM}} att get ATTACHMENT_ID
-
-# Create attachment
-{{CLI_PROGRAM}} att create SCW-123 -T "Design Doc" -u https://example.com
-
-# Link a URL to an issue (shorthand)
-{{CLI_PROGRAM}} att link-url SCW-123 https://example.com
-
-# Update attachment
-{{CLI_PROGRAM}} att update ATTACHMENT_ID -T "New Title"
-
-# Delete attachment
+{{CLI_PROGRAM}} att list LIN-123
+{{CLI_PROGRAM}} att get ATTACHMENT_ID --output json --compact
+{{CLI_PROGRAM}} att link-url LIN-123 https://example.com
 {{CLI_PROGRAM}} att delete ATTACHMENT_ID --force
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-T TITLE` | Attachment title |
-| `-u URL` | Attachment URL |
-| `--output json` | JSON output |
-| `--force` | Skip delete confirmation |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} att list --help`, `{{CLI_PROGRAM}} att create --help`.

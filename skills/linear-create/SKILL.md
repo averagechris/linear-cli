@@ -6,34 +6,18 @@ allowed-tools: Bash
 
 # Create Issues
 
+Create bugs, tasks, and feature requests.
+
+## Start here
+
 ```bash
-# Basic
 linear i create "Title" -t TEAM
-
-# With options
-linear i create "Bug" -t ENG -p 1        # Priority (1=urgent)
-linear i create "Task" -t ENG -a me      # Assign to self
-linear i create "Fix" -t ENG -l bug      # With label
-linear i create "Due" -t ENG --due +3d   # Due date
-
-# Agent patterns
-linear i create "Bug" -t ENG --id-only   # Return ID only
-linear i create "Test" -t ENG --dry-run  # Preview
-cat desc.md | linear i create "Title" -t ENG -d -
+linear i create "Bug" -t ENG -p 1 -l bug
+linear i create "Task" -t ENG --dry-run
+linear i create "Title" -t ENG -d - --id-only
 ```
 
-## Priority
-
-`1`=Urgent, `2`=High, `3`=Normal, `4`=Low
-
-## Due Dates
-
-`today`, `tomorrow`, `+3d`, `+2w`, `monday`, `eow`, `eom`
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--id-only` | Return ID only |
-| `--dry-run` | Preview |
-| `--quiet` | No output |
+## Agent notes
+- Priorities: `1` urgent, `2` high, `3` normal, `4` low.
+- Use `-d -` or `--data -` to pass longer input via stdin.
+- Full syntax and less-common flags: `linear i create --help`.

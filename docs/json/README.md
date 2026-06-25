@@ -5,12 +5,12 @@ parsers and tests understand the shape of JSON responses. Field presence may var
 depending on Linear data and permissions.
 
 Commands that produce these shapes:
-- `linear-cli i list --output json`
-- `linear-cli i get LIN-123 --output json`
-- `linear-cli p list --output json`
-- `linear-cli t list --output json`
-- `linear-cli cm list ISSUE_ID --output json`
-- `linear-cli context --output json`
+- `linear i list --output json`
+- `linear i get LIN-123 --output json`
+- `linear p list --output json`
+- `linear t list --output json`
+- `linear cm list ISSUE_ID --output json`
+- `linear context --output json`
 
 Schema version:
 - `1.0` (see `docs/json/schema.json`)

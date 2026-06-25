@@ -4,22 +4,18 @@ description: View Linear issue history. Use for activity logs and audit trails.
 allowed-tools: Bash
 ---
 
-# Issue History
+# History
+
+View issue activity and audit trails.
+
+## Start here
 
 ```bash
-# View issue activity
-{{CLI_PROGRAM}} hist issue LIN-123
-{{CLI_PROGRAM}} hist issue LIN-123 --output json
-
-# With pagination
-{{CLI_PROGRAM}} hist issue LIN-123 --limit 50
-{{CLI_PROGRAM}} hist issue LIN-123 --all
+{{CLI_PROGRAM}} history issue LIN-123
+{{CLI_PROGRAM}} i get LIN-123 --history
+{{CLI_PROGRAM}} history issue LIN-123 --output json --compact
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--limit N` | Max entries |
-| `--all` | Fetch all |
-| `--output json` | JSON output |
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} history issue --help`.

@@ -6,35 +6,17 @@ allowed-tools: Bash
 
 # Milestones
 
+Manage project milestones and target dates.
+
+## Start here
+
 ```bash
-# List milestones for a project
-{{CLI_PROGRAM}} ms list -p "My Project"
-{{CLI_PROGRAM}} ms list -p "My Project" --output json
-
-# Get milestone details
-{{CLI_PROGRAM}} ms get MILESTONE_ID
-
-# Create a milestone
-{{CLI_PROGRAM}} ms create "Beta Release" -p "My Project"
-{{CLI_PROGRAM}} ms create "GA" -p PROJ --target-date 2025-06-01
-
-# Update a milestone
-{{CLI_PROGRAM}} ms update MILESTONE_ID --target-date +2w
-{{CLI_PROGRAM}} ms update MILESTONE_ID --name "Renamed"
-
-# Delete a milestone
-{{CLI_PROGRAM}} ms delete MILESTONE_ID --force
+{{CLI_PROGRAM}} ms list -p PROJECT_ID
+{{CLI_PROGRAM}} ms create "Beta" -p PROJECT_ID
+{{CLI_PROGRAM}} ms update MILESTONE_ID --name "GA"
+{{CLI_PROGRAM}} ms delete MILESTONE_ID
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-p PROJECT` | Project name/ID |
-| `--target-date DATE` | Target date (YYYY-MM-DD or +Nw) |
-| `--name NAME` | Milestone name |
-| `--output json` | JSON output |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} ms create --help`, `{{CLI_PROGRAM}} ms update --help`.

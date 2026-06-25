@@ -6,34 +6,18 @@ allowed-tools: Bash
 
 # Raw GraphQL API
 
+Run GraphQL when no first-class command covers the task.
+
+## Start here
+
 ```bash
-# Run a query
 {{CLI_PROGRAM}} api query '{ viewer { id name email } }'
-
-# Query with variables
-{{CLI_PROGRAM}} api query -v teamId=abc '{ team(id: $teamId) { name } }'
-
-# Run a mutation
-{{CLI_PROGRAM}} api mutate -v title="Bug" '
-  mutation($title: String!) {
-    issueCreate(input: { title: $title, teamId: "..." }) {
-      issue { id identifier }
-    }
-  }
-'
-
-# Pipe query from file
-cat query.graphql | {{CLI_PROGRAM}} api query -
+{{CLI_PROGRAM}} api query -v teamId=abc 'query($teamId: String!) { team(id: $teamId) { name } }'
+{{CLI_PROGRAM}} api query -v first=10 -v archived=false 'query($first: Int, $archived: Boolean) { issues(first: $first, includeArchived: $archived) { nodes { identifier title } } }'
+{{CLI_PROGRAM}} api mutate -v title=Bug - < mutation.graphql
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-v key=val` | GraphQL variables |
-| `--output json` | JSON output |
-| `--compact` | Compact JSON |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- Prefer typed CLI commands first; raw GraphQL is the escape hatch.
+- Use `-v key=value` for variables and `-` to read query text from stdin.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} api query --help`, `{{CLI_PROGRAM}} api mutate --help`.

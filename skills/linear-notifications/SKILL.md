@@ -6,29 +6,18 @@ allowed-tools: Bash
 
 # Notifications
 
+Read, mark, and archive Linear notifications.
+
+## Start here
+
 ```bash
-# List unread notifications
-linear n list
-linear n list --output json
-
-# Get unread count
-linear n count
-
-# Mark as read
+linear notifications list
+linear n list --output json --compact
 linear n read NOTIFICATION_ID
-
-# Mark all as read
-linear n read-all
-
-# Archive a notification
 linear n archive NOTIFICATION_ID
-
-# Archive all notifications
-linear n archive-all
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--output json` | JSON output |
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear n list --help`, `linear n archive --help`.

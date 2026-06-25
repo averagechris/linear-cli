@@ -4,45 +4,19 @@ description: Manage issue templates - local templates and Linear API templates. 
 allowed-tools: Bash
 ---
 
-# Local Templates
+# Templates
+
+List and inspect local/API issue templates.
+
+## Start here
 
 ```bash
-# List local templates
 linear tpl list
-
-# Show template
+linear tpl list --output json --compact
 linear tpl show bug
-
-# Create local template
-linear tpl create bug
-
-# Delete local template
-linear tpl delete bug
+linear i create "Bug" -t ENG --template bug --dry-run
 ```
 
-# API Templates (Linear server-side)
-
-```bash
-# List remote templates
-linear tpl remote-list
-linear tpl remote-list --output json
-
-# Get remote template
-linear tpl remote-get TEMPLATE_ID
-
-# Create remote template
-linear tpl remote-create "Bug Report" -t ENG
-
-# Update remote template
-linear tpl remote-update TEMPLATE_ID --name "Updated"
-
-# Delete remote template
-linear tpl remote-delete TEMPLATE_ID --force
-```
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-t TEAM` | Team for remote templates |
-| `--output json` | JSON output |
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- Full syntax and less-common flags: `linear tpl list --help`, `linear tpl show --help`.

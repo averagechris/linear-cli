@@ -6,23 +6,16 @@ allowed-tools: Bash
 
 # Metrics
 
+Inspect velocity, burndown, and progress metrics.
+
+## Start here
+
 ```bash
-# Cycle metrics (velocity, burndown)
-linear mt cycle CYCLE_ID
-linear mt cycle CYCLE_ID --output json
-
-# Project progress
-linear mt project PROJECT_ID
-linear mt project PROJECT_ID --output json
-
-# Team velocity over time
-linear mt velocity TEAM_KEY
-linear mt velocity ENG --cycles 5    # Last 5 cycles
+linear metrics velocity ENG
+linear metrics cycle CYCLE_ID
+linear metrics project PROJECT_ID --output json --compact
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--cycles N` | Number of cycles |
-| `--output json` | JSON output |
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- Full syntax and less-common flags: `linear metrics --help`.

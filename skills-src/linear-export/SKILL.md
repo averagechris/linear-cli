@@ -6,31 +6,16 @@ allowed-tools: Bash
 
 # Export
 
+Export Linear data for reports, backups, or scripts.
+
+## Start here
+
 ```bash
-# Export issues to CSV
-{{CLI_PROGRAM}} exp csv -t ENG                     # Export team issues
-{{CLI_PROGRAM}} exp csv -t ENG -f issues.csv       # Export to file
-{{CLI_PROGRAM}} exp csv --all -t ENG               # All pages
-
-# Export to Markdown
-{{CLI_PROGRAM}} exp markdown -t ENG
-{{CLI_PROGRAM}} exp markdown -t ENG -f issues.md
-
-# Export to JSON (round-trip compatible with import)
-{{CLI_PROGRAM}} exp json -t ENG -f backup.json
-
-# Export projects to CSV
-{{CLI_PROGRAM}} exp projects-csv -f projects.csv
-
-# With filters
-{{CLI_PROGRAM}} exp csv -t ENG -s "In Progress"
-{{CLI_PROGRAM}} exp csv -t ENG --assignee me
+{{CLI_PROGRAM}} export csv -t ENG -f issues.csv
+{{CLI_PROGRAM}} export json -t ENG -f issues.json --pretty
+{{CLI_PROGRAM}} export projects-csv -f projects.csv
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-f FILE` | Output to file |
-| `--all` | Export all pages |
-| `-t TEAM` | Filter by team |
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} export csv --help`, `{{CLI_PROGRAM}} export json --help`.

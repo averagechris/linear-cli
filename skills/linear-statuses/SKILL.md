@@ -6,27 +6,18 @@ allowed-tools: Bash
 
 # Statuses
 
+Inspect or manage workflow states for a team.
+
+## Start here
+
 ```bash
-# List all statuses for a team
 linear st list -t ENG
-linear st list -t ENG --output json
-
-# Get status details
-linear st get "In Progress" -t ENG
-
-# Update a workflow state
-linear st update STATE_ID --name "Reviewing" --color "#3B82F6"
+linear st get "In Progress" -t ENG --output json --compact
+linear st update STATUS_ID -t ENG --name "In Review" --dry-run
+linear st get "In Progress" -t ENG --output json --compact
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-t TEAM` | Team key (required) |
-| `--name NAME` | Status name |
-| `--color HEX` | Status color |
-| `--output json` | JSON output |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear st list --help`, `linear st update --help`.

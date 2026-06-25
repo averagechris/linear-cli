@@ -6,19 +6,18 @@ allowed-tools: Bash
 
 # Initiatives
 
-```bash
-# List initiatives
-linear init list
-linear init list --output json
+View and manage high-level initiatives.
 
-# Get initiative details
-linear init get INITIATIVE_ID
-linear init get INITIATIVE_ID --output json
+## Start here
+
+```bash
+linear init list
+linear init get INIT_ID --output json --compact
+linear init create "Platform Migration"
+linear init update INIT_ID --name "Renamed"
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--output json` | JSON output |
-| `--compact` | No formatting |
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear init --help`.

@@ -2,7 +2,7 @@ use std::process::Command;
 
 /// Helper to run CLI commands and capture output
 fn run_cli(args: &[&str]) -> (i32, String, String) {
-    let output = Command::new(env!("CARGO_BIN_EXE_linear-cli"))
+    let output = Command::new(env!("CARGO_BIN_EXE_linear"))
         .args(args)
         .output()
         .expect("Failed to execute command");
@@ -18,7 +18,7 @@ fn run_cli(args: &[&str]) -> (i32, String, String) {
 fn test_help_command() {
     let (code, stdout, _stderr) = run_cli(&["--help"]);
     assert_eq!(code, 0);
-    assert!(stdout.contains("A powerful CLI for Linear.app"));
+    assert!(stdout.contains("Linear.app from the terminal"));
     assert!(stdout.contains("Commands:"));
 }
 
@@ -41,7 +41,7 @@ fn test_update_help() {
     let (code, stdout, _stderr) = run_cli(&["update", "--help"]);
     assert_eq!(code, 0);
     assert!(stdout.contains("--check"));
-    assert!(stdout.contains("linear-cli update"));
+    assert!(stdout.contains("linear update"));
 }
 
 #[test]
@@ -108,6 +108,8 @@ fn test_bulk_help() {
     assert!(stdout.contains("update-state"));
     assert!(stdout.contains("assign"));
     assert!(stdout.contains("label"));
+    assert!(stdout.contains("linear bulk update-state Done -i LIN-1,LIN-2"));
+    assert!(!stdout.contains("linear bulk update -s Done"));
 }
 
 #[test]
@@ -341,7 +343,7 @@ fn test_binary_name_in_help() {
     assert_eq!(code, 0);
     // The help should show the binary name
     assert!(
-        stdout.contains("linear-cli") || stdout.contains("Usage:"),
+        stdout.contains("Usage: linear"),
         "Help output should contain binary name or usage info"
     );
 }
@@ -1286,7 +1288,7 @@ fn test_json_output_format() {
     let (code, stdout, _stderr) = run_cli(&["--output", "json", "--help"]);
     assert_eq!(code, 0);
     assert!(
-        stdout.contains("Commands:") || stdout.contains("linear-cli"),
+        stdout.contains("Commands:") || stdout.contains("Usage: linear"),
         "help should still work with --output json"
     );
 }

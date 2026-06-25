@@ -4,708 +4,182 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
 
-A fast, comprehensive command-line interface for [Linear](https://linear.app) built in Rust. Manage issues, projects, cycles, sprints, documents, and more -- entirely from your terminal.
+A fast Linear.app CLI for issues, projects, cycles, teams, documents, and automation.
 
-## Installation
+The primary command is `linear`; package-manager installs may also provide `linear-cli` as a compatibility symlink.
+Credentials are stored in the OS keyring only.
 
-Hosted release downloads, checksums, and release notes are published at <https://averagechris.srht.site/linear-cli/>. See the [changelog](CHANGELOG.md) for version history and [hosted downloads docs](docs/downloads.md) for release artifact details.
+## Install
+
+Hosted release downloads, checksums, and release notes: <https://averagechris.srht.site/linear-cli/>.
 
 ```bash
-# From any Homebrew tap that packages this binary
+# Homebrew tap package (replace with your tap)
 brew tap your-org/tap
 brew install your-org/tap/linear-cli
 
-# With Nix (minimal package)
-nix run .#linear-cli -- --help
+# Nix
+nix run .#linear -- --help
+nix run .#linear-bundled -- --help       # includes git/jj/gh/less wrappers
 
-# With Nix and bundled runtime tools (git/jj/gh/less)
-nix run .#linear-cli-bundled -- --help
-
-# From crates.io (uses OS keyring for credentials)
+# Cargo
 cargo install linear-cli
-
-# From source
-git clone https://github.com/Finesssee/linear-cli.git
-cd linear-cli && cargo build --release
 ```
 
-For Homebrew installs, the tap formula should install `linear` as the primary executable and add a `linear-cli` symlink for compatibility.
-
-Credentials are stored in the OS keyring (Keychain, Credential Manager, or Secret Service). Plaintext credential storage is not supported.
-
-The flake exports two CLI packages:
-
-- `.#linear-cli` — minimal package; external tools like `git`, `gh`, `jj`, and `less` come from your environment
-- `.#linear-cli-bundled` — wrapped package with those runtime tools on `PATH`
-
-## Updating
+From source:
 
 ```bash
-# Check SourceHut release tags for newer versions
-linear-cli update
+git clone https://github.com/Finesssee/linear-cli.git
+cd linear-cli
+cargo build --release
+```
 
-# Check without changing any local installation
-linear-cli update --check
+## Update
 
-# Update a Homebrew-installed binary
+`linear update` checks canonical SourceHut `vX.Y.Z` release tags and reports whether a newer release exists. It does not self-update.
+
+```bash
+linear update --check
 brew upgrade your-org/tap/linear-cli
-
-# Update a cargo-installed binary
 cargo install --locked linear-cli
-
-# Update a Nix-based workflow
 nix flake update
 ```
 
-`linear-cli` does not self-update in place. `linear-cli update` compares the current binary against `vX.Y.Z` tags on the canonical SourceHut remote, then leaves the update itself to your package manager, flake inputs, or a source rebuild.
+Release/build details live in [docs/downloads.md](docs/downloads.md) and [docs/homebrew.md](docs/homebrew.md).
 
-To publish a new release tag for this fork after updating `Cargo.toml`'s version:
-
-```bash
-nix run .#release-tag
-```
-
-To prepare the changelog, tag the release, build the local platform artifact, and generate the SourceHut Pages downloads archive in one deterministic flow:
+## Quick start
 
 ```bash
-nix run .#release -- --version X.Y.Z
+linear auth login                         # Store API key in OS keyring
+linear i list --mine                      # My issues
+linear i get LIN-123                      # Issue details
+linear i start LIN-123 --checkout         # Assign + In Progress + branch
+linear done                               # Mark current branch issue Done
+linear g pr LIN-123 --draft               # Create linked GitHub PR
 ```
 
-Add `--publish-pages` to publish with `hut`, and `--submit-linux-build` to submit the SourceHut Linux build manifest.
-
-To build the macOS release artifact expected by a supported Homebrew tap build host:
+Discover more:
 
 ```bash
-nix build .#homebrew-artifact
+linear common                             # Common tasks
+linear agent                              # Agent/scripting patterns
+linear <command> --help                   # Full syntax
+linear completions static zsh > ~/.zfunc/_linear
 ```
 
-That build produces a `result/` directory containing platform-specific artifacts such as `linear-cli-v1.2.2-darwin-arm64.tar.gz` plus a matching `.sha256` file. See [docs/homebrew.md](docs/homebrew.md) for the release artifact contract and supported platform details.
+## Command map
 
-The cross-platform hosted-download artifact is available as:
+| Task | Command | Example |
+| --- | --- | --- |
+| Issues | `i`, `issues` | `linear i list --mine`, `linear i create "Bug" -t ENG` |
+| Projects | `p`, `projects` | `linear p list`, `linear p get PROJECT_ID` |
+| Teams/users | `t`, `teams`, `u`, `users` | `linear t members ENG`, `linear u get me` |
+| Cycles/sprints | `c`, `cycles`, `sp`, `sprint` | `linear c current -t ENG`, `linear sp status -t ENG` |
+| Comments | `cm`, `comments` | `linear cm list LIN-123 --output json` |
+| Search | `s`, `search` | `linear s issues "auth bug"` |
+| Git/PR | `g`, `git` | `linear g checkout LIN-123`, `linear g pr LIN-123` |
+| Bulk updates | `b`, `bulk` | `linear b update-state Done -i LIN-1,LIN-2` |
+| Attachments/uploads | `att`, `up` | `linear att list LIN-123`, `linear up fetch URL -f image.png` |
+| Config/auth | `auth`, `config`, `doctor` | `linear auth status`, `linear doctor` |
+| Automation | `watch`, `api` | `linear watch comments --mine --output ndjson` |
+
+## Agent and script ergonomics
+
+Useful global flags:
 
 ```bash
-nix build .#release-artifact
+--output table|json|ndjson       # machine-readable with json/ndjson
+--compact --fields a,b.c         # smaller JSON payloads
+--filter field=value             # dot-path filters; =, !=, ~= contains
+--limit N --all                  # result limits and pagination
+--quiet --no-color               # cleaner CI/log output
+--dry-run                        # preview only when command help documents support
+--id-only                        # chaining where command help documents support
+--yes                            # confirmation for mutations
 ```
 
-## Quick Start
+Examples:
 
 ```bash
-# 1. Set your API key (get one at https://linear.app/settings/api)
-linear-cli auth login
-
-# Or use OAuth 2.0 (browser-based, auto-refreshing)
-linear-cli auth oauth
-
-# 2. List your issues
-linear-cli i list --mine
-
-# 3. Start working on an issue (assigns to you, sets In Progress, creates branch)
-linear-cli i start LIN-123 --checkout
-
-# 4. When done, mark complete and create a PR
-linear-cli done
-linear-cli g pr LIN-123
+linear i list --output json --compact --fields identifier,title,state.name
+linear cm list LIN-123 --output json --compact
+linear watch comments --mine --output ndjson | ./handle-linear-comment
+linear i update LIN-123 --data - --dry-run
+linear up fetch URL -f /tmp/screenshot.png
 ```
 
-## Commands
+Exit codes: `0` success, `1` general error, `2` not found, `3` auth, `4` rate limited.
+JSON examples live in [docs/json/](docs/json/). Agent Skills are documented in [docs/skills.md](docs/skills.md) and agent setup in [docs/ai-agents.md](docs/ai-agents.md).
 
-### Issues
+## Common workflows
 
-Full issue lifecycle management with 16 subcommands.
+### Create and update an issue
 
 ```bash
-linear-cli issues list                           # List issues
-linear-cli i list -t ENG --mine                  # My issues on a team
-linear-cli i list --since 7d --group-by state    # Last 7 days, grouped by status
-linear-cli i list --label bug --count-only       # Count bugs
-linear-cli i list --view "My Sprint"             # Apply a saved custom view
-
-linear-cli i get LIN-123                         # Issue details
-linear-cli i get LIN-123 --history               # Activity timeline
-linear-cli i get LIN-123 --comments              # Inline comments
-linear-cli i get LIN-1 LIN-2 LIN-3              # Batch fetch
-
-linear-cli i create "Fix login" -t ENG -p 1      # Create urgent issue
-linear-cli i update LIN-123 -s Done              # Update status
-linear-cli i update LIN-123 -l bug -l urgent     # Add labels
-linear-cli i update LIN-123 --due tomorrow       # Set due date
-linear-cli i update LIN-123 -e 3                 # Set estimate
-
-linear-cli i start LIN-123 --checkout            # Start + checkout branch
-linear-cli i stop LIN-123                        # Return to backlog
-linear-cli i close LIN-123                       # Mark as Done
-linear-cli i assign LIN-123 "Alice"              # Assign to user
-linear-cli i move LIN-123 "Q2 Project"           # Move to project
-linear-cli i transfer LIN-123 ENG                # Transfer to team
-linear-cli i comment LIN-123 -b "LGTM"           # Add comment
-linear-cli i archive LIN-123                     # Archive
-linear-cli i open LIN-123                        # Open in browser
-linear-cli i link LIN-123                        # Print URL
+linear i create "Fix login" -t ENG -p 1 --id-only
+linear i update LIN-123 -s "In Progress" -a me
+linear cm create LIN-123 -b "Investigating now"
 ```
 
-**List flags:** `--mine`, `--team`, `--state`, `--assignee`, `--project`, `--label`, `--since`, `--view`, `--group-by` (state/priority/assignee/project), `--count-only`, `--archived`
-
-### Projects
-
-Full project CRUD with label management and archiving.
+### Start work and open a PR
 
 ```bash
-linear-cli projects list                         # List all projects
-linear-cli p get "Q1 Roadmap"                    # Project details
-linear-cli p create "New Feature" -t ENG         # Create project
-linear-cli p update PROJECT_ID --name "Renamed"  # Update project
-linear-cli p members "Q1 Roadmap"                # List members
-linear-cli p add-labels PROJECT_ID bug           # Add labels
-linear-cli p remove-labels PROJECT_ID bug        # Remove labels
-linear-cli p set-labels PROJECT_ID bug feat      # Replace all labels
-linear-cli p archive PROJECT_ID                  # Archive
-linear-cli p unarchive PROJECT_ID                # Unarchive
-linear-cli p open "Q1 Roadmap"                   # Open in browser
-linear-cli p delete PROJECT_ID                   # Delete
+linear i start LIN-123 --checkout
+# make changes, commit with your normal VCS flow
+linear g pr LIN-123 --draft
 ```
 
-### Project Updates
-
-Track project health with status updates (onTrack, atRisk, offTrack).
+### Search, inspect, and fetch context
 
 ```bash
-linear-cli project-updates list PROJECT_ID       # List updates
-linear-cli pu get UPDATE_ID                      # Get update details
-linear-cli pu create PROJECT_ID -b "On track"    # Create update
-linear-cli pu update UPDATE_ID -b "Updated"      # Edit update
-linear-cli pu archive UPDATE_ID                  # Archive
-linear-cli pu unarchive UPDATE_ID                # Unarchive
+linear s issues "oauth callback" --output json --compact --fields identifier,title,state.name
+linear i get LIN-123 --comments --history --output json --compact
+linear up fetch URL -f /tmp/attachment.png
 ```
 
-### Teams
+### Bulk operations
 
 ```bash
-linear-cli teams list                            # List all teams
-linear-cli t get ENG                             # Team details
-linear-cli t members ENG                         # List members
-linear-cli t create "Platform" -k PLT            # Create team
-linear-cli t update TEAM_ID --name "Infra"       # Update team
-linear-cli t delete TEAM_ID                      # Delete team
+linear b update-state Done -i LIN-1,LIN-2
+linear b assign me -i LIN-1,LIN-2
+linear b label bug -i LIN-1,LIN-2
 ```
 
-### Cycles
+## Configuration notes
+
+- `linear auth login` stores credentials in the OS keyring.
+- Use `--api-key KEY` or `--profile NAME` for one invocation.
+- Plaintext config fallback and env-based auth/profile overrides are intentionally unsupported in this fork.
+- Use `linear doctor` when auth, config, cache, or connectivity looks wrong.
+
+## Docs
+
+- [Usage examples](docs/examples.md)
+- [Workflows](docs/workflows.md)
+- [AI agents](docs/ai-agents.md)
+- [Agent Skills](docs/skills.md)
+- [Shell completions](docs/shell-completions.md)
+- [Hosted downloads](docs/downloads.md)
+- [Homebrew artifact contract](docs/homebrew.md)
+- [Changelog](CHANGELOG.md)
+
+## Development
 
 ```bash
-linear-cli cycles list -t ENG                    # List cycles
-linear-cli c current -t ENG                      # Current cycle
-linear-cli c get CYCLE_ID                        # Cycle details with issues
-linear-cli c create -t ENG --start 2026-03-01 --end 2026-03-14
-linear-cli c update CYCLE_ID --name "Sprint 5"
-linear-cli c complete CYCLE_ID                   # Complete cycle
-linear-cli c delete CYCLE_ID
+cargo build
+cargo test
+cargo clippy --all-targets --all-features -- -D warnings
+cargo fmt -- --check
 ```
 
-### Sprint Planning
-
-Plan and manage cycle-based sprints with progress visualization, burndown charts, and velocity tracking.
+Nix-backed checks:
 
 ```bash
-linear-cli sprint status -t ENG                  # Current sprint status
-linear-cli sp progress -t ENG                    # Progress bar visualization
-linear-cli sp plan -t ENG                        # Next sprint's planned issues
-linear-cli sp carry-over -t ENG --force          # Move incomplete to next cycle
-linear-cli sp burndown -t ENG                    # ASCII burndown chart
-linear-cli sp velocity -t ENG                    # Velocity across past 6 sprints
-linear-cli sp velocity -t ENG -n 10              # Velocity across past 10 sprints
+nix flake check
+nix run .#ci-clippy
+nix run .#ci-test
 ```
-
-### Documents, Labels, Comments
-
-```bash
-# Documents
-linear-cli documents list                        # List documents
-linear-cli d create "ADR-001" -c "Content..."    # Create document
-linear-cli d update DOC_ID -c "Updated"          # Update
-linear-cli d delete DOC_ID                       # Delete
-
-# Labels
-linear-cli labels list                           # List labels
-linear-cli l create "priority:p0" -c "#FF0000"   # Create with color
-linear-cli l update LABEL_ID -n "Renamed"        # Rename
-linear-cli l delete LABEL_ID                     # Delete
-
-# Comments
-linear-cli comments list ISSUE_ID                # List comments
-linear-cli cm create ISSUE_ID -b "Comment text"  # Add comment
-linear-cli cm update COMMENT_ID -b "Edited"      # Edit
-linear-cli cm delete COMMENT_ID                  # Delete
-```
-
-### Milestones, Roadmaps, Initiatives
-
-```bash
-# Milestones
-linear-cli milestones list -p "Q1 Roadmap"       # List project milestones
-linear-cli ms create "Beta" -p PROJECT_ID        # Create milestone
-linear-cli ms update MS_ID --name "GA"           # Update
-linear-cli ms delete MS_ID                       # Delete
-
-# Roadmaps
-linear-cli roadmaps list                         # List roadmaps
-linear-cli rm get ROADMAP_ID                     # Roadmap details
-linear-cli rm create "2026 Plan"                 # Create
-linear-cli rm update RM_ID --name "H1 2026"      # Update
-linear-cli rm delete RM_ID                       # Delete
-
-# Initiatives
-linear-cli initiatives list                      # List initiatives
-linear-cli init get INIT_ID                      # Initiative details
-linear-cli init create "Platform Migration"      # Create
-linear-cli init update INIT_ID --name "Renamed"  # Update
-linear-cli init delete INIT_ID                   # Delete
-```
-
-### Custom Views
-
-```bash
-linear-cli views list                            # List saved views
-linear-cli v get VIEW_ID                         # View details
-linear-cli v create "My Bugs" -t ENG             # Create view
-linear-cli v update VIEW_ID --name "Open Bugs"   # Update
-linear-cli v delete VIEW_ID                      # Delete
-linear-cli i list --view "My Bugs"               # Apply view to issue list
-```
-
-### Relations
-
-```bash
-linear-cli relations list LIN-123                # List relationships
-linear-cli rel add LIN-123 blocks LIN-456        # Add relation
-linear-cli rel remove LIN-123 blocks LIN-456     # Remove relation
-linear-cli rel parent LIN-456 LIN-123            # Set parent issue
-linear-cli rel unparent LIN-456                  # Remove parent
-```
-
-### Attachments
-
-```bash
-linear-cli attachments list ISSUE_ID             # List attachments
-linear-cli att get ATTACHMENT_ID                 # Get details
-linear-cli att create ISSUE_ID -u URL -t "Doc"   # Create attachment
-linear-cli att link-url ISSUE_ID URL             # Link a URL
-linear-cli att update ATTACHMENT_ID -t "New"     # Update
-linear-cli att delete ATTACHMENT_ID              # Delete
-```
-
-### Templates
-
-Local templates and Linear workspace (remote) templates.
-
-```bash
-# Local templates
-linear-cli templates list                        # List local templates
-linear-cli tpl create                            # Create interactively
-linear-cli tpl show TEMPLATE_NAME                # Show details
-linear-cli tpl delete TEMPLATE_NAME              # Delete
-
-# Linear workspace templates
-linear-cli tpl remote-list                       # List API templates
-linear-cli tpl remote-get TEMPLATE_ID            # Get template
-linear-cli tpl remote-create -n "Bug Report"     # Create
-linear-cli tpl remote-update TEMPLATE_ID         # Update
-linear-cli tpl remote-delete TEMPLATE_ID         # Delete
-```
-
-### Notifications
-
-```bash
-linear-cli notifications list                    # Unread notifications
-linear-cli n count                               # Unread count
-linear-cli n read NOTIFICATION_ID                # Mark as read
-linear-cli n read-all                            # Mark all as read
-linear-cli n archive NOTIFICATION_ID             # Archive one
-linear-cli n archive-all                         # Archive all
-```
-
-### Statuses & Time Tracking
-
-```bash
-# Statuses
-linear-cli statuses list -t ENG                  # List workflow states
-linear-cli st update STATUS_ID --name "Review"   # Rename a status
-
-# Time tracking
-linear-cli time list ISSUE_ID                    # List time entries
-linear-cli tm update ENTRY_ID --hours 2.5        # Update entry
-```
-
-### Favorites
-
-```bash
-linear-cli favorites list                        # List favorites
-linear-cli fav add ISSUE_ID                      # Add to favorites
-linear-cli fav remove FAVORITE_ID                # Remove
-```
-
-### Users
-
-```bash
-linear-cli users list                            # List workspace users
-linear-cli u me                                  # Current user
-linear-cli u get "alice@example.com"             # Look up a user
-linear-cli whoami                                # Alias for `users me`
-```
-
-### Webhooks
-
-Full CRUD plus a local listener with HMAC-SHA256 signature verification.
-
-```bash
-linear-cli webhooks list                         # List webhooks
-linear-cli wh get WEBHOOK_ID                     # Webhook details
-linear-cli wh create https://hook.example.com    # Create webhook
-linear-cli wh update WEBHOOK_ID --url NEW_URL    # Update
-linear-cli wh rotate-secret WEBHOOK_ID           # Rotate signing secret
-linear-cli wh delete WEBHOOK_ID                  # Delete
-linear-cli wh listen --port 8080                 # Start local listener
-```
-
-### Watch Mode
-
-Poll for real-time changes to issues, projects, teams, or issue comments. For
-automation, use comment watch with NDJSON and pipe events into your own process;
-the CLI does not spawn commands itself.
-
-```bash
-linear-cli watch issue LIN-123                   # Watch an issue
-linear-cli w project PROJECT_ID                  # Watch a project
-linear-cli w team ENG                            # Watch a team
-
-linear-cli watch comments LIN-123 --output ndjson
-linear-cli watch comments --mine --source slack --output ndjson \
-  | ./handle-linear-comment
-linear-cli watch comments --team ENG --state "In Progress" \
-  --comment-filter 'comment.body~=@agent' --output ndjson
-linear-cli watch comments --search oauth --subscribed --output ndjson
-```
-
-Comment watch events include the issue, comment body, author, parent comment,
-Linear URL, labels, assignee, and external sync metadata such as
-`source.syncedServices` and `source.externalThread`. Use `--source SERVICE` to
-filter by an external sync service (for example `slack`) without making Slack a
-special case, use issue selectors like `--mine`, `--subscribed`, `--search`, or
-`--view`, or use `--comment-filter field=value|field!=value|field~=value` for
-dot-path event filters. By default startup seeds the current comment set and
-emits only future comments; add `--replay-existing` or `--since -1h` to backfill,
-and `--state-file PATH` to persist seen comment IDs across daemon restarts.
-
-### Triage
-
-```bash
-linear-cli triage list -t ENG                    # Unassigned issues
-linear-cli tr claim LIN-123                      # Assign to self
-linear-cli tr snooze LIN-123                     # Snooze for later
-```
-
-### Bulk Operations
-
-```bash
-linear-cli bulk update-state LIN-1 LIN-2 -s Done   # Bulk status update
-linear-cli b assign LIN-1 LIN-2 -a "Alice"         # Bulk assign
-linear-cli b label LIN-1 LIN-2 -l bug              # Bulk add label
-linear-cli b unassign LIN-1 LIN-2                   # Bulk unassign
-```
-
-### Git Integration
-
-Works with both Git and Jujutsu (jj).
-
-```bash
-linear-cli git checkout LIN-123                  # Create + checkout branch
-linear-cli g branch LIN-123                      # Show branch name
-linear-cli g create LIN-123                      # Create branch (no checkout)
-linear-cli g commits                             # Commits with Linear trailers (jj)
-linear-cli g pr LIN-123 --draft                  # Create GitHub PR
-```
-
-### Import / Export
-
-Round-trip CSV and JSON import/export with field resolution for status, assignee, and labels.
-
-```bash
-# Import
-linear-cli import csv issues.csv -t ENG          # Import from CSV
-linear-cli import json issues.json -t ENG        # Import from JSON
-linear-cli import csv issues.csv -t ENG --dry-run  # Preview without creating
-
-# Export
-linear-cli export csv -t ENG -f issues.csv       # Export issues to CSV
-linear-cli export json -t ENG -f issues.json     # Export issues to JSON
-linear-cli export markdown -t ENG                # Export to Markdown
-linear-cli export projects-csv -f projects.csv   # Export projects to CSV
-```
-
-### Search & Context
-
-```bash
-linear-cli search issues "auth bug"              # Search issues
-linear-cli s projects "platform"                 # Search projects
-linear-cli context                               # Issue from current git branch
-linear-cli history LIN-123                       # Activity timeline
-linear-cli metrics -t ENG                        # Team velocity and stats
-```
-
-### Raw GraphQL
-
-Direct API access for anything not covered by built-in commands.
-
-```bash
-linear-cli api query '{ viewer { name email } }'
-linear-cli api mutate 'mutation { issueUpdate(id: "...", input: { ... }) { success } }'
-```
-
-### Other Commands
-
-```bash
-linear-cli done                                  # Mark current branch issue as Done
-linear-cli interactive                           # TUI for browsing/managing issues
-linear-cli sync status                           # Compare local folders with Linear
-linear-cli sync push                             # Create Linear projects from folders
-```
-
-## Authentication
-
-Two authentication methods are supported. Both can be used per-profile.
-
-### API Key
-
-```bash
-# Interactive login (stored in OS keyring)
-linear-cli auth login
-
-# Prompt and store API key via config command
-linear-cli config set-key
-
-# Per-invocation override without storing a new key
-linear-cli --api-key lin_api_xxx i list
-```
-
-### OAuth 2.0
-
-Browser-based Authorization Code + PKCE flow with automatic token refresh.
-
-```bash
-linear-cli auth oauth          # Opens browser for authorization
-linear-cli auth oauth --admin  # Explicitly add admin scope when needed
-linear-cli auth status         # Show auth type, token expiry
-linear-cli auth revoke         # Revoke OAuth tokens
-linear-cli auth logout         # Remove stored credentials
-```
-
-**Default OAuth scopes:** `read,write`
-
-Add `--admin` only for commands that require elevated access such as webhook management.
-
-**Auth priority:** `--api-key` flag for the current invocation > OS keyring > OAuth tokens metadata.
-
-## Configuration
-
-Config is stored at `~/.config/linear-cli/config.toml` (Linux/macOS) or `%APPDATA%\linear-cli\config.toml` (Windows).
-
-```bash
-linear-cli config show                           # Show current config
-linear-cli config get default_team               # Get a value
-linear-cli config set default_team ENG           # Set a value
-
-# Multiple workspaces
-linear-cli config workspace-add work             # Add workspace profile
-linear-cli config workspace-list                 # List profiles
-linear-cli config workspace-switch work          # Switch active profile
-linear-cli config workspace-current              # Show current
-linear-cli config workspace-remove work          # Remove profile
-
-# Per-invocation profile override
-linear-cli --profile work i list
-```
-
-### Setup & Diagnostics
-
-```bash
-linear-cli setup                                 # Guided onboarding wizard
-linear-cli doctor                                # Check config + connectivity
-linear-cli doctor --fix                          # Auto-remediate issues
-linear-cli cache status                          # Cache stats
-linear-cli cache clear                           # Clear cache
-```
-
-## Shell Completions
-
-### Static Completions
-
-Generate tab completions for command names and flags.
-
-```bash
-# Bash
-linear-cli completions static bash > ~/.bash_completion.d/linear-cli
-
-# Zsh
-linear-cli completions static zsh > ~/.zfunc/_linear-cli
-
-# Fish
-linear-cli completions static fish > ~/.config/fish/completions/linear-cli.fish
-
-# PowerShell
-linear-cli completions static powershell > linear-cli.ps1
-```
-
-### Dynamic Completions
-
-Context-aware completions that query the Linear API for team names, project names, issue identifiers, statuses, and more.
-
-```bash
-linear-cli completions dynamic bash              # Dynamic bash completions
-linear-cli completions dynamic zsh               # Dynamic zsh completions
-linear-cli completions dynamic fish              # Dynamic fish completions
-linear-cli completions dynamic powershell        # Dynamic PowerShell completions
-```
-
-Legacy alias: `linear-cli config completions <shell>` also generates static completions.
-
-## Agent & Automation Usage
-
-linear-cli is designed to work well with AI agents and scripts. Every command supports machine-readable output.
-
-### Output Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--output json` | JSON output (also `ndjson`) |
-| `--compact` | Compact JSON (no pretty-printing) |
-| `--fields a,b,c` | Limit JSON to specific fields (dot paths supported) |
-| `--sort field` | Sort JSON arrays by field |
-| `--order asc\|desc` | Sort direction |
-| `--quiet` | Suppress decorative output |
-| `--id-only` | Only output resource ID (for chaining) |
-| `--format tpl` | Template output, e.g. `"{{identifier}} {{title}}"` |
-| `--filter f=v` | Client-side filter (`=`, `!=`, `~=`; dot paths; case-insensitive) |
-| `--fail-on-empty` | Non-zero exit when list is empty |
-| `--dry-run` | Preview without making changes |
-| `--yes` | Auto-confirm all prompts |
-| `--no-pager` | Disable auto-paging |
-| `--no-cache` | Bypass cache |
-
-### Scripting Examples
-
-```bash
-# Get issue ID for chaining
-ID=$(linear-cli i create "Bug" -t ENG --id-only --quiet)
-
-# JSON output for programmatic consumption
-linear-cli i list --output json --fields identifier,title,state.name --compact
-
-# Pipe description from file
-cat desc.md | linear-cli i create "Title" -t ENG -d -
-
-# JSON input for structured create/update
-cat issue.json | linear-cli i create "Title" -t ENG --data -
-
-# Default JSON for entire session
-export LINEAR_CLI_OUTPUT=json
-
-# Batch get with structured output
-linear-cli i get LIN-1 LIN-2 LIN-3 --output json --compact
-```
-
-### Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| `0` | Success |
-| `1` | General error |
-| `2` | Not found |
-| `3` | Auth error |
-| `4` | Rate limited |
-
-### Pagination
-
-```bash
-linear-cli i list --limit 25                     # Limit results
-linear-cli i list --all --page-size 100           # Fetch all pages
-linear-cli i list --after CURSOR                  # Cursor-based pagination
-```
-
-## Agent Skills
-
-linear-cli includes Agent Skills for AI coding assistants (Claude Code, Cursor, Codex, etc.).
-
-```bash
-# Install all skills
-npx skills add Finesssee/linear-cli
-
-# Install specific skill
-npx skills add Finesssee/linear-cli --skill linear-workflow
-```
-
-38 skills covering issues, git, planning, organization, operations, tracking, and advanced API usage. Skills are 10-50x more token-efficient than MCP tools. See [docs/skills.md](docs/skills.md) for details.
-
-For OpenCode project-local skills, this repo also exposes `.opencode/skills/`. Run `nix run .#link-opencode-skills` to symlink the repo's published skills into that directory.
-
-## Key Features
-
-- **50+ commands** across 30+ command groups with short aliases
-- **OAuth 2.0 + PKCE** authentication alongside API key auth
-- **Dynamic shell completions** for bash, zsh, fish, and PowerShell
-- **Import/Export** with round-trip CSV and JSON support
-- **Sprint planning** with progress bars, burndown charts, velocity tracking, and carry-over between cycles
-- **Webhook listener** with HMAC-SHA256 signature verification
-- **Watch mode** for real-time polling on issues, projects, teams, and comment streams
-- **Custom views** that can be applied to issue and project lists
-- **Bulk operations** for updating, assigning, and labeling multiple issues
-- **Git and Jujutsu (jj)** support for branch management and PR creation
-- **Interactive TUI** for browsing and managing issues
-- **Template system** with both local and Linear workspace templates
-- **Auto-paging** output through `less` on Unix terminals
-- **Multiple workspaces** with named profiles and seamless switching
-- **Reliable networking** with HTTP timeouts, jittered retries, and atomic cache writes
-
-## Documentation
-
-- [Agent Skills](docs/skills.md) -- 38 skills for AI agents
-- [AI Agent Integration](docs/ai-agents.md) -- Setup for Claude Code, Cursor, Codex
-- [Usage Examples](docs/examples.md) -- Detailed command examples
-- [Workflows](docs/workflows.md) -- Common workflow patterns
-- [JSON Samples](docs/json/README.md) -- Example JSON output shapes
-- [Shell Completions](docs/shell-completions.md) -- Tab completion setup
-
-## Comparison with Other CLIs
-
-| Feature | @linear/cli | linear-go | linear-cli |
-|---------|-------------|-----------|------------|
-| Last updated | 2021 | 2023 | 2026 |
-| Commands | ~10 | ~10 | **50+** |
-| Agent Skills | No | No | **38 skills** |
-| OAuth 2.0 (PKCE) | No | No | Yes |
-| Sprint planning | No | No | status, progress, burndown, velocity, carry-over |
-| Import/Export | No | No | CSV, JSON, Markdown |
-| Webhooks + listener | No | No | CRUD + HMAC-SHA256 listener |
-| Custom views | No | No | Full CRUD + apply |
-| Project updates | No | No | CRUD + health status |
-| Templates (local + remote) | No | No | Full CRUD |
-| Dynamic completions | No | No | bash/zsh/fish/pwsh |
-| Issue workflow actions | No | No | assign, move, transfer, close, archive |
-| Bulk operations | No | No | Yes |
-| Watch mode | No | No | issue, project, team, comments |
-| Raw GraphQL API | No | No | query + mutate |
-| Git + jj support | No | No | Yes |
-| Interactive TUI | No | No | Yes |
-| Multiple workspaces | No | No | Yes |
-| JSON output | No | Yes | JSON, NDJSON, templates |
-
-## Contributing
-
-Contributions welcome! Please open an issue or submit a pull request.
-
-Validation in this fork is split intentionally:
-
-- `nix flake check` covers build + formatting
-- `nix run .#ci-test` runs the Rust test suite
-- `nix run .#ci-clippy` runs clippy with warnings denied
 
 ## License
 
-[MIT](LICENSE)
+MIT

@@ -6,27 +6,18 @@ allowed-tools: Bash
 
 # Bulk Operations
 
+Apply one change to many issues.
+
+## Start here
+
 ```bash
-# Update status for multiple issues
-{{CLI_PROGRAM}} b update-state -s Done LIN-1 LIN-2 LIN-3
-
-# Assign multiple issues
-{{CLI_PROGRAM}} b assign --user me LIN-1 LIN-2
-{{CLI_PROGRAM}} b assign --user "John Doe" LIN-1 LIN-2
-
-# Unassign multiple issues
-{{CLI_PROGRAM}} b unassign LIN-1 LIN-2
-
-# Add label to multiple issues
-{{CLI_PROGRAM}} b label --add bug LIN-1 LIN-2 LIN-3
-
-# Pipe issue IDs from stdin
-{{CLI_PROGRAM}} i list -t ENG --id-only | {{CLI_PROGRAM}} b assign --user me -
+{{CLI_PROGRAM}} b update-state Done -i LIN-1,LIN-2
+{{CLI_PROGRAM}} b assign me -i LIN-1,LIN-2
+{{CLI_PROGRAM}} b label bug -i LIN-1,LIN-2
+{{CLI_PROGRAM}} b unassign -i LIN-1,LIN-2
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--dry-run` | Preview changes |
-| `--output json` | JSON output |
+## Agent notes
+- Issue lists are comma-separated after `-i`.
+- Bulk commands execute immediately; verify the comma-separated issue list before running.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} b update-state --help`.

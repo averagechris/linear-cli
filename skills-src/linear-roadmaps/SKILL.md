@@ -6,19 +6,18 @@ allowed-tools: Bash
 
 # Roadmaps
 
-```bash
-# List roadmaps
-{{CLI_PROGRAM}} rm list
-{{CLI_PROGRAM}} rm list --output json
+View and manage Linear roadmaps.
 
-# Get roadmap details
-{{CLI_PROGRAM}} rm get ROADMAP_ID
-{{CLI_PROGRAM}} rm get ROADMAP_ID --output json
+## Start here
+
+```bash
+{{CLI_PROGRAM}} rm list
+{{CLI_PROGRAM}} rm get ROADMAP_ID --output json --compact
+{{CLI_PROGRAM}} rm create "2026 Plan"
+{{CLI_PROGRAM}} rm update ROADMAP_ID --name "H1"
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--output json` | JSON output |
-| `--compact` | No formatting |
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} rm --help`.

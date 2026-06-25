@@ -4,61 +4,19 @@ description: Search Linear issues and projects. Use when finding issues, looking
 allowed-tools: Bash
 ---
 
-# Linear Search
+# Search
 
-Search Linear.app issues and projects using `linear`.
+Find issues and projects by text.
 
-## Search Issues
+## Start here
 
 ```bash
-# Search by text
 {{CLI_PROGRAM}} s issues "authentication bug"
-
-# Limit results
-{{CLI_PROGRAM}} s issues "login" --limit 5
-
-# JSON output for parsing
-{{CLI_PROGRAM}} s issues "error" --output json
-
-# With specific fields
-{{CLI_PROGRAM}} s issues "crash" --output json --fields identifier,title,state.name
+{{CLI_PROGRAM}} s issues "oauth" --output json --compact --fields identifier,title,state.name
+{{CLI_PROGRAM}} s projects "roadmap" --limit 10
+{{CLI_PROGRAM}} i get LIN-123 --output json --compact
 ```
 
-## Search Projects
-
-```bash
-# Search projects
-{{CLI_PROGRAM}} s projects "backend"
-
-# Limit results
-{{CLI_PROGRAM}} s projects "api" --limit 10
-
-# JSON output
-{{CLI_PROGRAM}} s projects "mobile" --output json
-```
-
-## Filter Results
-
-After searching, get details on specific issues:
-
-```bash
-# Get issue details
-{{CLI_PROGRAM}} i get LIN-123 --output json
-
-# Get comments
-{{CLI_PROGRAM}} cm list LIN-123 --output json
-
-# List issues by team
-{{CLI_PROGRAM}} i list -t ENG --output json
-
-# List issues by status
-{{CLI_PROGRAM}} i list -s "In Progress" --output json
-```
-
-## Tips
-
-- Search is case-insensitive
-- Searches issue titles and descriptions
-- Use `--output json` for programmatic access
-- Use `--limit` to control result count
-- Combine with `i get` for full details
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} s issues --help`, `{{CLI_PROGRAM}} s projects --help`.

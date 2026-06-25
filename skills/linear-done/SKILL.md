@@ -4,25 +4,17 @@ description: Mark the current branch's issue as Done. Use as a quick shortcut to
 allowed-tools: Bash
 ---
 
-# Done
+# Done Shortcut
+
+Mark the issue in the current branch as done.
+
+## Start here
 
 ```bash
-# Mark current branch's issue as Done
 linear done
-
-# Set to a different status
-linear done --status "In Review"
-linear done -s "In Progress"
+linear done --status "Ready for Review"
+linear context --output json --compact
 ```
 
-Reads the current git branch, extracts the issue ID (e.g. `feat/SCW-123-title` -> `SCW-123`), and updates the issue status.
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-s STATUS` | Status to set (default: "Done") |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- Full syntax and less-common flags: `linear done --help`.

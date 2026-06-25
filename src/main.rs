@@ -99,43 +99,27 @@ pub fn is_yes() -> bool {
 }
 
 #[derive(Parser)]
-#[command(name = "linear")]
-#[command(
-    about = "A powerful CLI for Linear.app - manage issues, projects, and more from your terminal"
-)]
+#[command(name = "linear", bin_name = "linear")]
+#[command(about = "Linear.app from the terminal: issues, projects, cycles, teams, and automation")]
 #[command(version)]
 #[command(after_help = r#"QUICK START:
-    1. Get your API key from https://linear.app/settings/api
-    2. Configure the CLI:
-       linear auth login
-    3. List your issues:
-       linear issues list
-    4. Create an issue:
-       linear issues create "Fix bug" --team ENG --priority 2
+    linear auth login
+    linear i list --mine
+    linear i get LIN-123
 
-COMMON FLAGS:
-    --output table|json|ndjson    Output format (default: table)
-    --color-mode auto|always|never   Color output control
-    --no-color                    Disable color output
-    --width N                     Max table column width
-    --no-truncate                 Disable table truncation
-    --quiet                       Reduce decorative output
-    --format TEMPLATE             Template output (e.g. '{{identifier}} {{title}}')
-    --filter field=value          Filter results (=, !=, ~= operators; dot paths; case-insensitive)
-    --limit N                     Limit list/search results
-    --page-size N                 Page size for list/search
-    --after CURSOR                Pagination cursor (after)
-    --before CURSOR               Pagination cursor (before)
-    --all                         Fetch all pages
-    --profile NAME                Use named profile
-    --schema                      Print JSON schema version and exit
-    --cache-ttl N                 Cache TTL in seconds
-    --no-cache                    Disable cache usage
-    --yes                         Auto-confirm all prompts
+DISCOVER:
+    linear common                 Common tasks
+    linear agent                  Agent/scripting flags and examples
+    linear <command> --help        Full syntax for any command
 
-For more info on a command, run: linear <command> --help"#)]
+USEFUL GLOBAL FLAGS:
+    --output table|json|ndjson     Machine-readable output with json/ndjson
+    --compact --fields a,b.c       Smaller JSON payloads for agents
+    --filter field=value           Dot-path filters; =, !=, ~= contains
+    --limit N --all                Result limits and pagination
+    --quiet --no-color             Cleaner logs and CI output"#)]
 struct Cli {
-    /// Output format (table or json)
+    /// Output format (table, json, or ndjson)
     #[arg(
         short,
         long,
@@ -494,9 +478,9 @@ enum Commands {
     /// Bulk operations - update multiple issues at once
     #[command(alias = "b")]
     #[command(after_help = r#"EXAMPLES:
-    linear bulk update -s Done LIN-1 LIN-2  # Update multiple issues
-    linear b assign --user me LIN-1 LIN-2   # Assign multiple issues
-    linear b label --add bug LIN-1 LIN-2    # Add label to issues"#)]
+    linear bulk update-state Done -i LIN-1,LIN-2
+    linear b assign me -i LIN-1,LIN-2
+    linear b label bug -i LIN-1,LIN-2"#)]
     Bulk {
         #[command(subcommand)]
         action: bulk::BulkCommands,
@@ -756,12 +740,11 @@ Walks you through:
     /// Generate shell completions
     #[command(alias = "comp")]
     #[command(after_help = r#"EXAMPLES:
-    linear completions bash > ~/.bash_completion.d/linear
-    linear completions zsh > ~/.zfunc/_linear
-    linear completions fish > ~/.config/fish/completions/linear.fish
-    linear comp powershell > linear.ps1
-    linear comp dynamic bash   # Dynamic completions with argument value hints
-    linear comp dynamic zsh    # Dynamic completions for zsh"#)]
+    linear completions static bash > ~/.bash_completion.d/linear
+    linear completions static zsh > ~/.zfunc/_linear
+    linear completions static fish > ~/.config/fish/completions/linear.fish
+    linear comp dynamic bash       # Dynamic argument value hints
+    linear comp dynamic zsh"#)]
     Completions {
         #[command(subcommand)]
         action: CompletionCommands,
@@ -818,10 +801,8 @@ enum ConfigCommands {
     Show,
     /// Generate shell completions
     #[command(after_help = r#"EXAMPLES:
-    linear config completions bash > ~/.bash_completion.d/linear
     linear config completions zsh > ~/.zfunc/_linear
-    linear config completions fish > ~/.config/fish/completions/linear.fish
-    linear config completions powershell > linear.ps1"#)]
+    linear completions static zsh > ~/.zfunc/_linear"#)]
     Completions {
         /// Shell to generate completions for
         #[arg(value_enum)]
@@ -1140,43 +1121,45 @@ async fn run_command(
     match command {
         Commands::Common => {
             println!("Common tasks:");
-            println!("  linear issues list -t ENG");
-            println!("  linear issues get LIN-123");
-            println!("  linear issues create \"Title\" -t ENG");
-            println!("  linear issues update LIN-123 -s Done");
-            println!("  linear projects list");
-            println!("  linear teams list");
-            println!("  linear git checkout LIN-123");
-            println!("  linear git pr LIN-123 --draft");
-            println!("  linear interactive --team ENG");
+            println!("  linear setup                         # Guided setup");
+            println!("  linear auth status                   # Check credentials");
+            println!("  linear doctor                        # Diagnose config/connectivity");
+            println!("  linear i list --mine                 # My issues");
+            println!("  linear i get LIN-123                 # Issue details");
+            println!("  linear i create \"Title\" -t ENG       # Create issue");
+            println!("  linear i start LIN-123 --checkout    # Start work");
+            println!("  linear context                       # Issue from current branch");
+            println!("  linear g pr LIN-123 --draft          # Linked GitHub PR");
+            println!("  linear s issues \"query\"              # Search issues");
+            println!("  linear watch comments --mine --output ndjson");
+            println!("  linear completions static zsh > ~/.zfunc/_linear");
             println!();
             println!("Tips:");
-            println!("  Use --help after any command for more options.");
-            println!("  Use --output json or --output ndjson for scripting/LLMs.");
-            println!("  Use --no-color for logs/CI.");
-            println!("  Use --limit/--page-size/--all for pagination.");
+            println!("  Run 'linear <command> --help' for full syntax.");
+            println!("  Run 'linear agent' for JSON/scripting patterns.");
         }
         Commands::Agent => {
-            println!("Agent harness:");
-            println!("  Use --output json or --output ndjson for machine-readable output.");
-            println!("  Use --compact and --fields to reduce tokens.");
-            println!("  Use --sort/--order to stabilize list outputs.");
-            println!("  Use --filter to reduce list results.");
-            println!("  Use --id-only for chaining create/update commands.");
-            println!("  Use --data - for JSON input on issue create/update.");
-            println!("  Use --yes to auto-confirm all prompts (deletes, destructive ops).");
-            println!("  Use 'linear done' to mark current branch's issue as Done.");
+            println!("Agent patterns:");
+            println!("  Read:  --output json --compact --fields a,b.c");
+            println!("  Stream: --output ndjson");
+            println!("  Filter: --filter field=value --limit N --sort field --order asc|desc");
+            println!("  Mutate: use --dry-run only when command help documents support");
+            println!("          use --id-only where command help documents support");
+            println!("          use --yes only when intended");
+            println!("  Quiet: --quiet --no-color for logs/CI");
+            println!("  Empty lists: --fail-on-empty when absence should fail");
+            println!("  Exit codes: 0 ok, 1 error, 2 not found, 3 auth, 4 rate limited");
             println!();
             println!("Examples:");
-            println!("  linear issues list --output json --compact --fields identifier,title");
-            println!("  linear issues list --output ndjson --filter state.name=In\\ Progress");
-            println!("  linear issues get LIN-123 --output json");
-            println!("  linear issues update LIN-123 --data - --dry-run");
-            println!("  linear context --output json --id-only");
+            println!(
+                "  linear i list --output json --compact --fields identifier,title,state.name"
+            );
+            println!("  linear cm list LIN-123 --output json --compact");
+            println!("  linear i update LIN-123 --data - --dry-run");
+            println!("  linear watch comments --mine --output ndjson");
+            println!("  linear up fetch URL -f /tmp/upload.png");
             println!();
-            println!("Schemas:");
-            println!("  See docs/json/ for sample outputs.");
-            println!("  Use --schema to print the current schema version.");
+            println!("Docs: docs/json/ has sample outputs; --schema prints schema version.");
         }
         Commands::Update { check } => update::handle(check, output, agent_opts).await?,
         Commands::Projects { action } => projects::handle(action, output).await?,
@@ -1992,7 +1975,7 @@ async fn handle_setup(output: &OutputOptions) -> Result<()> {
                         let team = &teams_arr[num - 1];
                         let key = team["key"].as_str().unwrap_or("?");
                         println!("  Default team: {}", key);
-                        println!("  Tip: Use -t {} or set LINEAR_CLI_TEAM={}", key, key);
+                        println!("  Tip: pass -t {} on team-scoped commands.", key);
                     } else {
                         println!("  Invalid selection, skipping.");
                     }

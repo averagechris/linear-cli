@@ -6,40 +6,18 @@ allowed-tools: Bash
 
 # Update Issues
 
+Change status, priority, assignee, labels, estimates, and dates.
+
+## Start here
+
 ```bash
-# Status
 {{CLI_PROGRAM}} i update LIN-123 -s Done
-{{CLI_PROGRAM}} i update LIN-123 -s "In Progress"
-
-# Priority
-{{CLI_PROGRAM}} i update LIN-123 -p 1    # 1=urgent, 2=high, 3=normal, 4=low
-
-# Assignee
-{{CLI_PROGRAM}} i update LIN-123 -a me
-{{CLI_PROGRAM}} i update LIN-123 -a "John Doe"
-
-# Labels
-{{CLI_PROGRAM}} i update LIN-123 -l bug
+{{CLI_PROGRAM}} i update LIN-123 -a me -p 2 --due tomorrow
 {{CLI_PROGRAM}} i update LIN-123 -l bug -l urgent
-
-# Due date
-{{CLI_PROGRAM}} i update LIN-123 --due tomorrow
-{{CLI_PROGRAM}} i update LIN-123 --due +3d
-
-# Agent patterns
-{{CLI_PROGRAM}} i update LIN-123 -s Done --id-only
+{{CLI_PROGRAM}} i update LIN-123 --data - --dry-run
 ```
 
-## Comments
-
-```bash
-{{CLI_PROGRAM}} cm list LIN-123
-{{CLI_PROGRAM}} cm create LIN-123 -b "Fixed in commit abc"
-```
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--id-only` | Return ID only |
-| `--output json` | JSON output |
+## Agent notes
+- Use `--dry-run` before broad or destructive updates.
+- Use `--data -` for structured JSON edits.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} i update --help`.

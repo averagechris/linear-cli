@@ -1,23 +1,23 @@
 ## Linear Integration
 
-Use `linear-cli` for all Linear.app operations. Do not use Linear MCP tools.
+Use `linear` for all Linear.app operations. Do not use Linear MCP tools.
 
 ### Commands
-- `linear-cli i list` - List issues
-- `linear-cli i list -t TEAM` - List team's issues
-- `linear-cli i create "Title" -t TEAM` - Create issue
-- `linear-cli i get LIN-123` - View issue details
-- `linear-cli i get LIN-1 LIN-2 LIN-3` - Batch fetch multiple issues
-- `linear-cli i get LIN-123 --output json` - View as JSON
-- `linear-cli i update LIN-123 -s Done` - Update status
-- `linear-cli i start LIN-123 --checkout` - Start work (assign + branch)
-- `linear-cli g pr LIN-123` - Create GitHub PR
-- `linear-cli g pr LIN-123 --draft` - Create draft PR
-- `linear-cli s issues "query"` - Search issues
-- `linear-cli context` - Get current issue from git branch
-- `linear-cli update` - Compare the current binary to canonical SourceHut `vX.Y.Z` tags (no self-update)
-- `linear-cli cm list ISSUE_ID --output json` - Get comments as JSON
-- `linear-cli up fetch URL -f file.png` - Download attachments
+- `linear i list` - List issues
+- `linear i list -t TEAM` - List team's issues
+- `linear i create "Title" -t TEAM` - Create issue
+- `linear i get LIN-123` - View issue details
+- `linear i get LIN-1 LIN-2 LIN-3` - Batch fetch multiple issues
+- `linear i get LIN-123 --output json` - View as JSON
+- `linear i update LIN-123 -s Done` - Update status
+- `linear i start LIN-123 --checkout` - Start work (assign + branch)
+- `linear g pr LIN-123` - Create GitHub PR
+- `linear g pr LIN-123 --draft` - Create draft PR
+- `linear s issues "query"` - Search issues
+- `linear context` - Get current issue from git branch
+- `linear update` - Compare the current binary to canonical SourceHut `vX.Y.Z` tags (no self-update)
+- `linear cm list ISSUE_ID --output json` - Get comments as JSON
+- `linear up fetch URL -f file.png` - Download attachments
 
 ### Agent-Friendly Flags
 - `--output json` - Machine-readable output
@@ -26,9 +26,9 @@ Use `linear-cli` for all Linear.app operations. Do not use Linear MCP tools.
 - `--sort field` - Sort JSON array output by field (default: identifier/id)
 - `--order asc|desc` - Sort order for JSON array output
 - `--quiet` or `-q` - Suppress decorative output
-- `--id-only` - Output only created/updated ID
+- `--id-only` - Output only created/updated ID where command help documents support
 - `--api-key KEY` - Override API key for this invocation only (never persist or export it)
-- `--dry-run` - Preview without executing (create)
+- `--dry-run` - Preview where command help documents support
 - `-d -` - Read description from stdin
 
 ### Exit Codes
@@ -41,10 +41,10 @@ Use `linear-cli` for all Linear.app operations. Do not use Linear MCP tools.
 ### Notes
 - Set `LINEAR_CLI_OUTPUT=json` to default all output to JSON
 - Errors with `--output json` return `{"error": true, "message": "...", "code": N, "details": {...}, "retry_after": N}`
-- `linear-cli i create/update` accept `--data` JSON input (use `-` for stdin)
-- `linear-cli agent` prints agent-focused capabilities and examples
-- `linear-cli update --check` compares the current binary to canonical SourceHut `vX.Y.Z` tags without installing or mutating anything
-- `nix run .#linear-cli` is the minimal package; `nix run .#linear-cli-bundled` wraps the CLI with runtime tools like `git`, `gh`, `jj`, and `less`
+- `linear i create/update` accept `--data` JSON input (use `-` for stdin)
+- `linear agent` prints agent-focused capabilities and examples
+- `linear update --check` compares the current binary to canonical SourceHut `vX.Y.Z` tags without installing or mutating anything
+- `nix run .#linear` is the minimal package; `nix run .#linear-bundled` wraps the CLI with runtime tools like `git`, `gh`, `jj`, and `less`
 - JSON samples live in `docs/json/`
 - Use `--help` on any command for full options
 - **This fork is keyring-only for credentials** — never add a plaintext config fallback for API keys or OAuth tokens. Migrate secrets into the OS keyring and keep `config.toml` metadata-only.

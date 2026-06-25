@@ -6,27 +6,17 @@ allowed-tools: Bash
 
 # Time Tracking
 
+Log and inspect time entries.
+
+## Start here
+
 ```bash
-# Log time
-linear tm log LIN-123 2h             # Log 2 hours
-linear tm log LIN-123 30m            # Log 30 minutes
-linear tm log LIN-123 1h30m          # Log 1.5 hours
-
-# List time entries
-linear tm list --issue LIN-123
-linear tm list --output json
-
-# Delete entry
-linear tm delete ENTRY_ID
+linear time list -i LIN-123
+linear time log LIN-123 1h -d "Review"
+linear time list -i LIN-123 --output json --compact
 ```
 
-## Duration Format
-
-`30m`, `1h`, `2h30m`, `1d` (8 hours)
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--issue ID` | Filter by issue |
-| `--output json` | JSON output |
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear time list --help`, `linear time log --help`.

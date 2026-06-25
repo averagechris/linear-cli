@@ -18,7 +18,7 @@
 9. **Stderr diagnostics** (`src/output.rs`, `src/keyring.rs`, `src/retry.rs`) - Added `OnceLock<bool>` quiet mode; `eprintln!` calls now check `is_quiet()` before writing.
 
 ### Consistency
-10. **CLI naming** (`src/main.rs`) - Changed clap `#[command(name = "linear")]` to `#[command(name = "linear-cli")]` to match binary name.
+10. **CLI naming** (`src/main.rs`) - Historical note: this release aligned clap naming with the then-current binary name; current releases use `linear` as the primary command.
 11. **Upload streaming** (`src/commands/uploads.rs`, `src/api.rs`) - Added `fetch_to_writer()` for streaming file downloads instead of buffering entire file in memory.
 
 ### Quality

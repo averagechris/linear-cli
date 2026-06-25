@@ -6,42 +6,18 @@ allowed-tools: Bash
 
 # Project Updates
 
+Post and review project health/status updates.
+
+## Start here
+
 ```bash
-# List updates for a project
-linear pu list "My Project"
-linear pu list "My Project" --output json
-
-# Get update details
-linear pu get UPDATE_ID
-
-# Create a project update
-linear pu create "My Project" -b "On track this sprint"
-linear pu create "My Project" -b "Blocked on API" --health atRisk
-
-# Update an existing update
-linear pu update UPDATE_ID -b "Updated status"
-
-# Archive/unarchive
+linear pu list PROJECT_ID
+linear pu get UPDATE_ID --output json --compact
+linear pu create PROJECT_ID -b "On track"
 linear pu archive UPDATE_ID
-linear pu unarchive UPDATE_ID
 ```
 
-## Health Status
-
-| Value | Meaning |
-|-------|---------|
-| `onTrack` | Project is on track (green) |
-| `atRisk` | Project is at risk (yellow) |
-| `offTrack` | Project is off track (red) |
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-b BODY` | Update body text |
-| `--health STATUS` | Health status |
-| `--output json` | JSON output |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear pu create --help`.

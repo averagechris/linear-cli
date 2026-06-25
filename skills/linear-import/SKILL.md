@@ -6,39 +6,16 @@ allowed-tools: Bash
 
 # Import
 
+Bulk-create issues from CSV or JSON.
+
+## Start here
+
 ```bash
-# Import from CSV
-linear im csv issues.csv -t ENG
-
-# Preview without creating (dry run)
-linear im csv issues.csv -t ENG --dry-run
-
-# Import from JSON
-linear im json issues.json -t ENG
-
-# JSON round-trip (export then re-import)
-linear exp json -t ENG -f backup.json
-linear im json backup.json -t ENG
+linear import csv issues.csv -t ENG --dry-run
+linear import json issues.json -t ENG
+linear import json issues.json -t ENG --dry-run
 ```
 
-## CSV Format
-
-CSV files need a header row. Supported columns: `title`, `description`, `priority`, `status`, `assignee`, `labels`, `estimate`, `dueDate`.
-
-Status, assignee, and labels are resolved by name automatically.
-
-## JSON Format
-
-JSON files should be an array of issue objects matching the export format.
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-t TEAM` | Target team (required) |
-| `--dry-run` | Preview without creating |
-| `--output json` | JSON output |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear import csv --help`, `linear import json --help`.

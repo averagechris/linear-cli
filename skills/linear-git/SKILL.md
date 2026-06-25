@@ -4,39 +4,20 @@ description: Git operations with Linear. Use for branches, checkout, and PRs.
 allowed-tools: Bash
 ---
 
-# Git Operations
+# Git Integration
+
+Create branches/bookmarks and discover branch context for issues.
+
+## Start here
 
 ```bash
-# Checkout branch for issue (creates if needed)
-linear g checkout LIN-123
-
-# Show branch name
 linear g branch LIN-123
-
-# Create branch without checkout
-linear g create LIN-123
-
-# Create GitHub PR from Linear issue
-linear g pr LIN-123
-linear g pr LIN-123 --draft      # Draft PR
-linear g pr LIN-123 --base main  # Specify base branch
-
-# jj (Jujutsu) - show commits with Linear trailers
-linear g commits
+linear g checkout LIN-123
+linear g checkout LIN-123 --vcs jj
+linear context --output json --compact
 ```
 
-## Context
-
-```bash
-# Get issue from current branch
-linear context
-linear context --output json
-```
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--draft` | Create draft PR |
-| `--base BRANCH` | Base branch |
-| `--output json` | JSON output |
+## Agent notes
+- Use `--vcs jj` in jj workspaces when needed.
+- Use `linear g --help` for branch naming options.
+- Full syntax and less-common flags: `linear g checkout --help`.

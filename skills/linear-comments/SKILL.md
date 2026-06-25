@@ -6,29 +6,18 @@ allowed-tools: Bash
 
 # Comments
 
+Read and manage issue comments.
+
+## Start here
+
 ```bash
-# List comments on an issue
-linear cm list ISSUE_ID
-linear cm list SCW-123 --output json
-
-# Create a comment
-linear cm create ISSUE_ID -b "Looks good, merging!"
-
-# Update a comment
-linear cm update COMMENT_ID -b "Updated text"
-
-# Delete a comment
-linear cm delete COMMENT_ID --force
+linear cm list LIN-123
+linear cm list LIN-123 --output json --compact
+linear cm create LIN-123 -b "Update posted"
+linear cm update COMMENT_ID -b "Edited"
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-b BODY` | Comment body text |
-| `--output json` | JSON output |
-| `--force` | Skip delete confirmation |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear cm list --help`, `linear cm create --help`.

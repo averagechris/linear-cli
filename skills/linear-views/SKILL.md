@@ -4,39 +4,20 @@ description: Manage custom views - create, list, apply saved views. Use when wor
 allowed-tools: Bash
 ---
 
-# Custom Views
+# Views
+
+Use saved Linear views and manage CLI custom views.
+
+## Start here
 
 ```bash
-# List all custom views
-linear v list
-linear v list --shared              # Shared views only
-
-# Get view details
-linear v get "My View"
-
-# Create a view
-linear v create "Bug Triage" --shared
-
-# Update a view
-linear v update VIEW_ID --name "Renamed"
-
-# Delete a view
-linear v delete VIEW_ID --force
-
-# Apply view to issue list
-linear i list --view "Bug Triage"
-linear p list --view "Active Projects"
+linear views list
+linear views get "My Sprint" --output json --compact
+linear i list --view "My Sprint"
+linear views create "Team Bugs" --team ENG --filter-json filters.json
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--shared` | Shared views only |
-| `--name NAME` | View name |
-| `--view NAME` | Apply view filter (on issues/projects list) |
-| `--output json` | JSON output |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear views create --help`, `linear i list --help`.

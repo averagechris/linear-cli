@@ -6,19 +6,18 @@ allowed-tools: Bash
 
 # Initiatives
 
-```bash
-# List initiatives
-{{CLI_PROGRAM}} init list
-{{CLI_PROGRAM}} init list --output json
+View and manage high-level initiatives.
 
-# Get initiative details
-{{CLI_PROGRAM}} init get INITIATIVE_ID
-{{CLI_PROGRAM}} init get INITIATIVE_ID --output json
+## Start here
+
+```bash
+{{CLI_PROGRAM}} init list
+{{CLI_PROGRAM}} init get INIT_ID --output json --compact
+{{CLI_PROGRAM}} init create "Platform Migration"
+{{CLI_PROGRAM}} init update INIT_ID --name "Renamed"
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--output json` | JSON output |
-| `--compact` | No formatting |
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} init --help`.

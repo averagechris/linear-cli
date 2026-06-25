@@ -1,64 +1,45 @@
 # Example Workflows
 
-## Daily Workflow
+## Daily work
 
 ```bash
-# Start your day - check your assigned issues
-linear-cli i list --assignee me
-
-# Pick an issue and start working on it
-linear-cli i start LIN-123 --checkout
-
-# ... do your work ...
-
-# Update the issue status when done
-linear-cli i update LIN-123 -s Done
+linear i list --mine
+linear i start LIN-123 --checkout
+# work with your normal editor/VCS flow
+linear cm create LIN-123 -b "Status: implementation is ready for review"
+linear done
 ```
 
-## Creating and Managing Issues
+## Create, triage, and assign
 
 ```bash
-# Create a new bug report
-linear-cli i create "Login button not working" -t ENG -p 2 -s "Backlog"
-
-# Add a label to the issue
-linear-cli bulk label "Bug" -i LIN-456
-
-# Assign it to yourself and start working
-linear-cli i start LIN-456 --checkout
-
-# Add a comment with your findings
-linear-cli cm create LIN-456 -b "Root cause: Missing null check in auth handler"
-
-# Mark as done when fixed
-linear-cli i update LIN-456 -s Done
+linear i create "Login button not working" -t ENG -p 2 -l bug --id-only
+linear i update LIN-456 -a me -s "In Progress"
+linear b label urgent -i LIN-456,LIN-789
+linear triage list -t ENG
 ```
 
-## Git Integration Workflow
+## Branch and PR
 
 ```bash
-# Start working on an issue (assigns to you, sets "In Progress")
-linear-cli i start LIN-123 --checkout
-
-# ... make your changes ...
-
-# Create a PR linked to the issue
-linear-cli g pr LIN-123
-
-# Or create a draft PR
-linear-cli g pr LIN-123 --draft --web
+linear context --output json --compact
+linear g checkout LIN-123
+linear g checkout LIN-123 --vcs jj
+linear g pr LIN-123 --draft
 ```
 
-## Project Setup Workflow
+## Agent daemon watching comments
 
 ```bash
-# Compare local code folders with Linear projects
-linear-cli sy status
+linear watch comments --mine --source slack --output ndjson \
+  --state-file ~/.cache/linear/watch-comments.json \
+  | ./handle-linear-comment
+```
 
-# Create Linear projects for folders that don't exist
-linear-cli sy push -t ENG --dry-run    # Preview first
-linear-cli sy push -t ENG              # Create projects
+## Reporting
 
-# Add labels to organize projects
-linear-cli p add-labels PROJECT_ID LABEL1 LABEL2
+```bash
+linear i list -t ENG --output json --compact --fields identifier,title,state.name
+linear sp velocity -t ENG -n 10
+linear export csv -t ENG -f issues.csv
 ```

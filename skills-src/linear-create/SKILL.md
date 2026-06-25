@@ -6,34 +6,18 @@ allowed-tools: Bash
 
 # Create Issues
 
+Create bugs, tasks, and feature requests.
+
+## Start here
+
 ```bash
-# Basic
 {{CLI_PROGRAM}} i create "Title" -t TEAM
-
-# With options
-{{CLI_PROGRAM}} i create "Bug" -t ENG -p 1        # Priority (1=urgent)
-{{CLI_PROGRAM}} i create "Task" -t ENG -a me      # Assign to self
-{{CLI_PROGRAM}} i create "Fix" -t ENG -l bug      # With label
-{{CLI_PROGRAM}} i create "Due" -t ENG --due +3d   # Due date
-
-# Agent patterns
-{{CLI_PROGRAM}} i create "Bug" -t ENG --id-only   # Return ID only
-{{CLI_PROGRAM}} i create "Test" -t ENG --dry-run  # Preview
-cat desc.md | {{CLI_PROGRAM}} i create "Title" -t ENG -d -
+{{CLI_PROGRAM}} i create "Bug" -t ENG -p 1 -l bug
+{{CLI_PROGRAM}} i create "Task" -t ENG --dry-run
+{{CLI_PROGRAM}} i create "Title" -t ENG -d - --id-only
 ```
 
-## Priority
-
-`1`=Urgent, `2`=High, `3`=Normal, `4`=Low
-
-## Due Dates
-
-`today`, `tomorrow`, `+3d`, `+2w`, `monday`, `eow`, `eom`
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--id-only` | Return ID only |
-| `--dry-run` | Preview |
-| `--quiet` | No output |
+## Agent notes
+- Priorities: `1` urgent, `2` high, `3` normal, `4` low.
+- Use `-d -` or `--data -` to pass longer input via stdin.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} i create --help`.

@@ -6,36 +6,18 @@ allowed-tools: Bash
 
 # Attachments
 
+List, link, create, update, and delete issue attachments.
+
+## Start here
+
 ```bash
-# List attachments on an issue
-linear att list SCW-123
-linear att list SCW-123 --output json
-
-# Get attachment details
-linear att get ATTACHMENT_ID
-
-# Create attachment
-linear att create SCW-123 -T "Design Doc" -u https://example.com
-
-# Link a URL to an issue (shorthand)
-linear att link-url SCW-123 https://example.com
-
-# Update attachment
-linear att update ATTACHMENT_ID -T "New Title"
-
-# Delete attachment
+linear att list LIN-123
+linear att get ATTACHMENT_ID --output json --compact
+linear att link-url LIN-123 https://example.com
 linear att delete ATTACHMENT_ID --force
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-T TITLE` | Attachment title |
-| `-u URL` | Attachment URL |
-| `--output json` | JSON output |
-| `--force` | Skip delete confirmation |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear att list --help`, `linear att create --help`.

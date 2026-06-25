@@ -6,29 +6,17 @@ allowed-tools: Bash
 
 # Issue Relations
 
+Manage blocking, parent/child, and duplicate relationships.
+
+## Start here
+
 ```bash
-# List relations
 {{CLI_PROGRAM}} rel list LIN-123
-
-# Add relation
-{{CLI_PROGRAM}} rel add LIN-1 -r blocks LIN-2     # LIN-1 blocks LIN-2
-{{CLI_PROGRAM}} rel add LIN-1 -r related LIN-2    # Related issues
-{{CLI_PROGRAM}} rel add LIN-1 -r duplicate LIN-2  # Duplicate
-
-# Remove relation
-{{CLI_PROGRAM}} rel remove LIN-1 -r blocks LIN-2
-
-# Parent/child
-{{CLI_PROGRAM}} rel parent LIN-2 LIN-1            # Set LIN-1 as parent
-{{CLI_PROGRAM}} rel unparent LIN-2                # Remove parent
+{{CLI_PROGRAM}} rel add LIN-123 -r blocks LIN-456
+{{CLI_PROGRAM}} rel parent LIN-123 LIN-100
+{{CLI_PROGRAM}} rel remove RELATION_ID
 ```
 
-## Relation Types
-
-`blocks`, `blocked-by`, `related`, `duplicate`
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--output json` | JSON output |
+## Agent notes
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} rel add --help`.

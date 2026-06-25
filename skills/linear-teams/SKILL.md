@@ -1,48 +1,25 @@
 ---
 name: linear-teams
-description: Manage Linear teams and users - list, create, update, delete teams. Use when managing teams or viewing user profiles.
+description: Manage Linear teams and users. Use when listing teams, inspecting members, or viewing user profiles.
 allowed-tools: Bash
 ---
 
 # Teams
 
+List teams, inspect members, manage team metadata, and view users.
+
+## Start here
+
 ```bash
-# List teams
 linear t list
-linear t list --output json
-
-# Get team details
-linear t get ENG
-linear t members ENG             # List team members
-
-# Create team
-linear t create "Platform" -k PLT
-linear t create "Mobile" -k MOB --description "Mobile team" --private
-
-# Update team
-linear t update ENG --name "Engineering" --timezone "America/New_York"
-
-# Delete team
-linear t delete TEAM_ID --force
-```
-
-# Users
-
-```bash
-# List users
-linear u list                    # All workspace users
-linear u list --team ENG         # Team members only
-
-# Current user
+linear t get ENG --output json --compact
+linear t members ENG
+linear u list --output json --compact
 linear u me
-linear me                        # Alias (whoami)
+linear t create "Platform" -k PLT
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-k KEY` | Team key |
-| `--private` | Private team |
-| `--output json` | JSON output |
-| `--compact` | No formatting |
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear t list --help`, `linear t members --help`, `linear u --help`.

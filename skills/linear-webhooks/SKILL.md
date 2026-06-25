@@ -6,51 +6,18 @@ allowed-tools: Bash
 
 # Webhooks
 
+Manage Linear webhooks and local event listening.
+
+## Start here
+
 ```bash
-# List all webhooks
-linear wh list
-
-# Create a webhook
-linear wh create https://example.com/hook --events Issue
-
-# Get webhook details
-linear wh get WEBHOOK_ID
-
-# Update a webhook
-linear wh update WEBHOOK_ID --url https://new-url.com
-
-# Delete a webhook
-linear wh delete WEBHOOK_ID --force
-
-# Rotate signing secret
+linear webhooks list
+linear wh create https://example.com/linear --events Issue
 linear wh rotate-secret WEBHOOK_ID
-
-# Listen for events locally (dev/testing)
-linear wh listen --port 9000
-linear wh listen --port 9000 --secret SIGNING_SECRET
+linear wh listen --port 3000
 ```
 
-## Subcommands
-
-| Command | Purpose |
-|---------|---------|
-| `list` | List all webhooks |
-| `get` | View webhook details |
-| `create` | Create webhook |
-| `update` | Update webhook |
-| `delete` | Delete webhook |
-| `rotate-secret` | Rotate signing secret |
-| `listen` | Local event listener with HMAC verification |
-
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--events TYPE` | Event types to subscribe |
-| `--port N` | Local listener port |
-| `--secret KEY` | HMAC signing secret |
-| `--output json` | JSON output |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear webhooks --help`.

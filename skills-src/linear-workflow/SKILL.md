@@ -4,44 +4,19 @@ description: Start/stop work on Linear issues. Use when beginning work, creating
 allowed-tools: Bash
 ---
 
-# Workflow Commands
+# Issue Workflow
 
-## Start Work
+Start, stop, close, and inspect work from issue IDs or branches.
+
+## Start here
 
 ```bash
-# Start working (assigns to you, sets In Progress)
-{{CLI_PROGRAM}} i start LIN-123
-
-# Start + create git branch
 {{CLI_PROGRAM}} i start LIN-123 --checkout
-```
-
-## Stop Work
-
-```bash
-# Stop working (unassigns, resets status)
 {{CLI_PROGRAM}} i stop LIN-123
+{{CLI_PROGRAM}} i close LIN-123
+{{CLI_PROGRAM}} context --output json --compact
 ```
 
-## Get Current Issue
-
-```bash
-# Get issue from current git branch
-{{CLI_PROGRAM}} context
-{{CLI_PROGRAM}} context --output json
-```
-
-## Full Workflow
-
-```bash
-# 1. Start
-{{CLI_PROGRAM}} i start LIN-123 --checkout
-
-# 2. Code...
-
-# 3. Create PR
-{{CLI_PROGRAM}} g pr LIN-123
-
-# 4. Done
-{{CLI_PROGRAM}} i update LIN-123 -s Done
-```
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} i start --help`, `{{CLI_PROGRAM}} context --help`.

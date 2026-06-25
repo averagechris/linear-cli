@@ -6,38 +6,17 @@ allowed-tools: Bash
 
 # Cycles
 
+Manage team cycles/sprints.
+
+## Start here
+
 ```bash
-# List cycles
-linear c list -t ENG             # Team cycles
-linear c list -t ENG --output json
-
-# Current cycle
-linear c current -t ENG
-linear c current -t ENG --output json
-
-# Create cycle
-linear c create -t ENG --name "Sprint 5"
-linear c create -t ENG --name "Sprint 5" --starts-at 2024-01-01 --ends-at 2024-01-14
-
-# Get cycle details
-linear c get CYCLE_ID
-
-# Update cycle
-linear c update CYCLE_ID --name "Sprint 5b"
-linear c update CYCLE_ID --description "Updated goals" --dry-run
-
-# Complete a cycle
+linear c list -t ENG
+linear c current -t ENG --output json --compact
+linear c create -t ENG --starts-at 2026-03-01 --ends-at 2026-03-14
 linear c complete CYCLE_ID
-
-# Delete cycle
-linear c delete CYCLE_ID --force
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--output json` | JSON output |
-| `--compact` | No formatting |
-| `--dry-run` | Preview without updating |
-| `--force` | Skip delete confirmation |
+## Agent notes
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear c create --help`, `linear c current --help`.

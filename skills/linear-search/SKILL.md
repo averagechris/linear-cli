@@ -4,61 +4,19 @@ description: Search Linear issues and projects. Use when finding issues, looking
 allowed-tools: Bash
 ---
 
-# Linear Search
+# Search
 
-Search Linear.app issues and projects using `linear`.
+Find issues and projects by text.
 
-## Search Issues
+## Start here
 
 ```bash
-# Search by text
 linear s issues "authentication bug"
-
-# Limit results
-linear s issues "login" --limit 5
-
-# JSON output for parsing
-linear s issues "error" --output json
-
-# With specific fields
-linear s issues "crash" --output json --fields identifier,title,state.name
+linear s issues "oauth" --output json --compact --fields identifier,title,state.name
+linear s projects "roadmap" --limit 10
+linear i get LIN-123 --output json --compact
 ```
 
-## Search Projects
-
-```bash
-# Search projects
-linear s projects "backend"
-
-# Limit results
-linear s projects "api" --limit 10
-
-# JSON output
-linear s projects "mobile" --output json
-```
-
-## Filter Results
-
-After searching, get details on specific issues:
-
-```bash
-# Get issue details
-linear i get LIN-123 --output json
-
-# Get comments
-linear cm list LIN-123 --output json
-
-# List issues by team
-linear i list -t ENG --output json
-
-# List issues by status
-linear i list -s "In Progress" --output json
-```
-
-## Tips
-
-- Search is case-insensitive
-- Searches issue titles and descriptions
-- Use `--output json` for programmatic access
-- Use `--limit` to control result count
-- Combine with `i get` for full details
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- Full syntax and less-common flags: `linear s issues --help`, `linear s projects --help`.

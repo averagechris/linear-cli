@@ -6,35 +6,17 @@ allowed-tools: Bash
 
 # Milestones
 
+Manage project milestones and target dates.
+
+## Start here
+
 ```bash
-# List milestones for a project
-linear ms list -p "My Project"
-linear ms list -p "My Project" --output json
-
-# Get milestone details
-linear ms get MILESTONE_ID
-
-# Create a milestone
-linear ms create "Beta Release" -p "My Project"
-linear ms create "GA" -p PROJ --target-date 2025-06-01
-
-# Update a milestone
-linear ms update MILESTONE_ID --target-date +2w
-linear ms update MILESTONE_ID --name "Renamed"
-
-# Delete a milestone
-linear ms delete MILESTONE_ID --force
+linear ms list -p PROJECT_ID
+linear ms create "Beta" -p PROJECT_ID
+linear ms update MILESTONE_ID --name "GA"
+linear ms delete MILESTONE_ID
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-p PROJECT` | Project name/ID |
-| `--target-date DATE` | Target date (YYYY-MM-DD or +Nw) |
-| `--name NAME` | Milestone name |
-| `--output json` | JSON output |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear ms create --help`, `linear ms update --help`.

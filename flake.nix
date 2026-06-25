@@ -818,7 +818,10 @@
             pname = cliProgram;
             doCheck = false;
             postInstall = ''
-              mv "$out/bin/${package.name}" "$out/bin/${cliProgram}"
+              if [[ ! -e "$out/bin/${cliProgram}" ]]; then
+                mv "$out/bin/${package.name}" "$out/bin/${cliProgram}"
+              fi
+              ln -s "${cliProgram}" "$out/bin/${package.name}"
             '';
 
             meta = lib.attrsets.filterAttrs (_: value: value != null) {
@@ -1111,6 +1114,8 @@
             ci-test = ci-test;
             linear-bundled = linear-bundled;
             linear = linear;
+            linear-cli-bundled = linear-bundled;
+            linear-cli = linear;
             fetch-upstream = fetch-upstream;
             link-opencode-skills = link-opencode-skills;
             build-pages = build-pages;
@@ -1137,6 +1142,14 @@
         };
         apps.linear = flake-utils.lib.mkApp {
           drv = linear;
+          exePath = "/bin/${cliProgram}";
+        };
+        apps.linear-cli = flake-utils.lib.mkApp {
+          drv = linear;
+          exePath = "/bin/${cliProgram}";
+        };
+        apps.linear-cli-bundled = flake-utils.lib.mkApp {
+          drv = linear-bundled;
           exePath = "/bin/${cliProgram}";
         };
         apps.ci-clippy = flake-utils.lib.mkApp {

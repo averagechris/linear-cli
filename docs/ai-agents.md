@@ -1,139 +1,60 @@
 # AI Agent Integration
 
-When using AI coding assistants (Claude Code, Cursor, Windsurf, Copilot, OpenAI Codex, etc.), `linear-cli` provides significant advantages over Linear MCP tools.
+Prefer `linear` over Linear MCP tools for Linear.app work: it is scriptable, fast, cache-aware, and has concise Agent Skills.
 
-## Install Agent Skills (Recommended)
-
-The easiest way to integrate linear-cli with your AI agent:
+## Install skills
 
 ```bash
 npx skills add Finesssee/linear-cli
 ```
 
-This installs **27 Agent Skills** covering all CLI features. Your agent automatically loads the right skill based on the task.
+This installs 38 skills. See [skills.md](skills.md).
 
-See [skills.md](skills.md) for the full list of available skills.
-
-## Why Use linear-cli with AI Agents
-
-| Aspect | linear-cli | Linear MCP |
-|--------|------------|------------|
-| Token usage | ~50-100 tokens/command | ~500-2000 tokens/tool call |
-| Latency | Single CLI execution | Multiple MCP round-trips |
-| Feature coverage | Full API | Limited subset |
-| Offline caching | Supported | Not available |
-| Agent Skills | 27 skills included | Not available |
-
-## Ready-to-Copy Agent Rules
-
-Add these snippets to your agent configuration to ensure your AI assistant uses linear-cli.
-
-### Claude Code (CLAUDE.md)
-
-Create or append to `~/.claude/CLAUDE.md`:
+## Drop-in agent rule
 
 ```markdown
 ## Linear Integration
 
-ALWAYS use `linear-cli` for Linear.app operations. NEVER use Linear MCP tools.
+Use `linear` for Linear.app operations. Do not use Linear MCP tools.
 
-Reason: CLI is 10-50x more token-efficient than MCP tool calls.
+Start with:
+- `linear common` - common human tasks
+- `linear agent` - JSON/scripting patterns
+- `linear <command> --help` - full syntax
 
-### Quick Commands:
-- List issues: `linear-cli i list`
-- Create issue: `linear-cli i create "Title" -t TEAM -p 2`
-- View issue: `linear-cli i get LIN-123`
-- Start work: `linear-cli i start LIN-123` (assigns, sets In Progress, creates branch)
-- Update: `linear-cli i update LIN-123 -s Done`
-- Create PR: `linear-cli g pr LIN-123`
-- Search: `linear-cli s issues "query"`
-- Fetch upload: `linear-cli up fetch URL -f file.png`
-- JSON output: Add `--output json` to any command (or set `LINEAR_CLI_OUTPUT=json`)
-- Agent help: `linear-cli agent`
+Common commands:
+- `linear i list --output json --compact --fields identifier,title,state.name`
+- `linear i get LIN-123 --output json --compact`
+- `linear context --output json --compact`
+- `linear i create "Title" -t TEAM --id-only`
+- `linear i update LIN-123 -s Done --dry-run`
+- `linear cm list LIN-123 --output json --compact`
+- `linear g pr LIN-123 --draft`
+- `linear watch comments --mine --output ndjson`
+- `linear up fetch URL -f /tmp/linear-upload.png`
+
+Exit codes: 0 ok, 1 error, 2 not found, 3 auth, 4 rate limited.
+JSON samples: docs/json/.
 ```
 
-### Cursor (.cursorrules)
+## Useful flags
 
-```
-For Linear.app operations, always use the linear-cli command-line tool:
-- linear-cli i list (list issues)
-- linear-cli i create "Title" -t TEAM (create issue)
-- linear-cli i get LIN-123 (view issue)
-- linear-cli g pr LIN-123 (create PR)
-- linear-cli up fetch URL -f file.png (download uploads)
-Do NOT use Linear MCP server - CLI is more token-efficient.
-```
+| Need | Flags |
+| --- | --- |
+| Parse output | `--output json --compact` |
+| Reduce tokens | `--fields a,b.c`, `--filter field=value`, `--limit N` |
+| Stable lists | `--sort field --order asc|desc` |
+| Streams | `--output ndjson` |
+| Safe mutations | `--dry-run` / `--id-only` where command help documents support; `--quiet` for logs |
+| CI/logs | `--quiet --no-color --fail-on-empty` |
 
-### OpenAI Codex (AGENTS.md)
+## Comment streams
 
-Create or append to `AGENTS.md` in your repository root:
-
-```markdown
-## Linear Integration
-
-Use `linear-cli` for all Linear.app operations. Do not use Linear MCP tools.
-
-### Commands:
-- `linear-cli i list` - List issues
-- `linear-cli i create "Title" -t TEAM` - Create issue
-- `linear-cli i get LIN-123` - View issue details
-- `linear-cli i update LIN-123 -s Done` - Update status
-- `linear-cli g pr LIN-123` - Create GitHub PR
-- `linear-cli cm list ISSUE_ID --output json` - Get comments as JSON
-- `linear-cli up fetch URL -f file.png` - Download attachments
-```
-
-### Generic Agent Instructions
-
-```
-RULE: Prefer linear-cli over Linear MCP for all Linear.app operations.
-REASON: CLI commands use 10-50x fewer tokens than MCP tool invocations.
-COMMANDS: linear-cli {issues|projects|git|search|uploads} - see linear-cli --help
-SCHEMAS: JSON samples in docs/json/
-```
-
-## Command Quick Reference
-
-| Task | Command | Example |
-|------|---------|---------|
-| List issues | `i list` | `linear-cli i list -t Engineering` |
-| Create issue | `i create` | `linear-cli i create "Bug" -t ENG -p 1` |
-| View issue | `i get` | `linear-cli i get LIN-123 --output json` |
-| Start work | `i start` | `linear-cli i start LIN-123 --checkout` |
-| Update issue | `i update` | `linear-cli i update LIN-123 -s Done` |
-| Create branch | `g checkout` | `linear-cli g checkout LIN-123` |
-| Create PR | `g pr` | `linear-cli g pr LIN-123 --draft` |
-| Search | `s issues` | `linear-cli s issues "auth bug"` |
-| Bulk ops | `b update` | `linear-cli b update -s Done LIN-1 LIN-2` |
-| Fetch upload | `up fetch` | `linear-cli up fetch URL -f image.png` |
-| Watch comments | `watch comments` | `linear-cli watch comments --mine --output ndjson` |
-
-## Comment Watch Streams
-
-For agent daemons that react to Linear or synced external comments, use
-`watch comments` with NDJSON and pipe the event stream into your own process:
+For agent daemons, pipe NDJSON events into your own process:
 
 ```bash
-linear-cli watch comments --mine --source slack --output ndjson \
+linear watch comments --mine --source slack --output ndjson \
   | ./agent-comment-router
 ```
 
-The CLI does not invoke commands itself. Each NDJSON line is a complete event
-with issue, comment, author, parent comment, URL, labels, assignee, and external
-sync metadata. Use `--source SERVICE` for synced sources such as Slack or
-`--comment-filter field=value|field!=value|field~=value` for dot-path filters,
-for example `--comment-filter 'comment.body~=@agent'`. Add `--state-file PATH`
-when running under launchd/systemd/supervisord so restarts do not replay already
-seen comments.
-
-## One-Liner Setup
-
-For quick Claude Code setup, run:
-
-```bash
-mkdir -p ~/.claude && cat >> ~/.claude/CLAUDE.md << 'EOF'
-
-## Linear: Use linear-cli (not MCP)
-Commands: i list, i create, i get, i start, g checkout, g pr, up fetch. Add --output json for parsing (or set LINEAR_CLI_OUTPUT=json).
-EOF
-```
+Each line includes issue, comment, author, URL, labels, assignee, and external sync metadata. Use `--comment-filter field=value|field!=value|field~=value`; add `--state-file PATH` to avoid replay after restarts.

@@ -6,30 +6,17 @@ allowed-tools: Bash
 
 # List/Get Issues
 
+List, inspect, and batch-fetch issues.
+
+## Start here
+
 ```bash
-# List issues
-linear i list                    # All
-linear i list -t ENG             # By team
-linear i list -s "In Progress"   # By status
-linear i list --assignee me      # My issues
-
-# Get issue(s)
-linear i get LIN-123
-linear i get LIN-1 LIN-2 LIN-3   # Multiple
-
-# Agent-optimized
-linear i list --output json --compact --fields identifier,title,state.name
+linear i list --mine
+linear i list -t ENG -s "In Progress"
+linear i get LIN-123 --output json --compact
+linear i get LIN-1 LIN-2 LIN-3 --output json --fields identifier,title,state.name
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--output json` | JSON output |
-| `--compact` | No formatting |
-| `--fields a,b` | Select fields |
-| `--sort field` | Sort results |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- Full syntax and less-common flags: `linear i list --help`, `linear i get --help`.

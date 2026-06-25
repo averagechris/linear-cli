@@ -6,30 +6,17 @@ allowed-tools: Bash
 
 # List/Get Issues
 
+List, inspect, and batch-fetch issues.
+
+## Start here
+
 ```bash
-# List issues
-{{CLI_PROGRAM}} i list                    # All
-{{CLI_PROGRAM}} i list -t ENG             # By team
-{{CLI_PROGRAM}} i list -s "In Progress"   # By status
-{{CLI_PROGRAM}} i list --assignee me      # My issues
-
-# Get issue(s)
-{{CLI_PROGRAM}} i get LIN-123
-{{CLI_PROGRAM}} i get LIN-1 LIN-2 LIN-3   # Multiple
-
-# Agent-optimized
-{{CLI_PROGRAM}} i list --output json --compact --fields identifier,title,state.name
+{{CLI_PROGRAM}} i list --mine
+{{CLI_PROGRAM}} i list -t ENG -s "In Progress"
+{{CLI_PROGRAM}} i get LIN-123 --output json --compact
+{{CLI_PROGRAM}} i get LIN-1 LIN-2 LIN-3 --output json --fields identifier,title,state.name
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--output json` | JSON output |
-| `--compact` | No formatting |
-| `--fields a,b` | Select fields |
-| `--sort field` | Sort results |
-
-## Exit Codes
-
-`0`=Success, `1`=Error, `2`=Not found, `3`=Auth error
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} i list --help`, `{{CLI_PROGRAM}} i get --help`.

@@ -6,27 +6,17 @@ allowed-tools: Bash
 
 # Labels
 
+Manage issue/project labels.
+
+## Start here
+
 ```bash
-# List labels
-{{CLI_PROGRAM}} l list                    # Project labels
-{{CLI_PROGRAM}} l list --type issue       # Issue labels
-
-# Create label
-{{CLI_PROGRAM}} l create "Feature" --color "#10B981"
-{{CLI_PROGRAM}} l create "Bug" --color "#EF4444" --id-only
-
-# Delete label
-{{CLI_PROGRAM}} l delete LABEL_ID
+{{CLI_PROGRAM}} l list
+{{CLI_PROGRAM}} l list --type issue --output json --compact
+{{CLI_PROGRAM}} l create "bug" --color "#EF4444"
 {{CLI_PROGRAM}} l delete LABEL_ID --force
-
-# Agent-optimized
-{{CLI_PROGRAM}} l list --output json --compact
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `--id-only` | Return ID only |
-| `--output json` | JSON output |
-| `--force` | Skip confirmation |
+## Agent notes
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `{{CLI_PROGRAM}} l list --help`, `{{CLI_PROGRAM}} l create --help`.

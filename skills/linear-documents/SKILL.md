@@ -6,28 +6,18 @@ allowed-tools: Bash
 
 # Documents
 
+List, create, update, and delete Linear documents.
+
+## Start here
+
 ```bash
-# List documents
 linear d list
-linear d list --output json
-
-# Get document
-linear d get DOC_ID
-linear d get DOC_ID --output json
-
-# Create document
-linear d create "Design Doc" -p PROJECT_ID
-linear d create "RFC" -p PROJECT_ID --id-only
-
-# Update document
-linear d update DOC_ID --title "New Title"
-linear d update DOC_ID --content "New content"
+linear d get DOC_ID --output json --compact
+linear d create "ADR-001" -p PROJECT_ID -c "Content"
+linear d update DOC_ID -c "Updated" --dry-run
 ```
 
-## Flags
-
-| Flag | Purpose |
-|------|---------|
-| `-p PROJECT` | Project ID |
-| `--id-only` | Return ID only |
-| `--output json` | JSON output |
+## Agent notes
+- For parsing, add `--output json --compact`; use `--fields a,b.c` to trim payloads.
+- For mutations, use `--dry-run` and `--id-only` only where command help documents support.
+- Full syntax and less-common flags: `linear d list --help`, `linear d create --help`.
