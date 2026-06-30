@@ -110,6 +110,7 @@ pub enum IssueCommands {
     linear issues create "Fix bug" -t ENG      # Create with title and team
     linear i create "Feature" -t ENG -p 2      # Create with high priority
     linear i create "Task" -t ENG -a me        # Assign to yourself
+    linear i create "Task" -t ENG --project Q2 # Add to project
     linear i create "Task" -t ENG --due +3d    # Due in 3 days
     linear i create "Bug" -t ENG --dry-run     # Preview without creating"#)]
     Create {
@@ -142,6 +143,9 @@ pub enum IssueCommands {
         /// Estimate in points (e.g., 1, 2, 3, 5, 8)
         #[arg(short, long)]
         estimate: Option<f64>,
+        /// Project name or ID
+        #[arg(long)]
+        project: Option<String>,
         /// Template name to use for default values
         #[arg(long)]
         template: Option<String>,
@@ -380,6 +384,7 @@ pub async fn handle(
             labels,
             due,
             estimate,
+            project,
             template,
             dry_run,
         } => {
@@ -458,6 +463,7 @@ pub async fn handle(
                 final_labels,
                 due,
                 estimate,
+                project,
                 output,
                 agent_opts,
                 dry_run,
@@ -1343,6 +1349,7 @@ async fn create_issue(
     labels: Vec<String>,
     due: Option<String>,
     estimate: Option<f64>,
+    project: Option<String>,
     output: &OutputOptions,
     agent_opts: AgentOptions,
     dry_run: bool,
@@ -1432,6 +1439,14 @@ async fn create_issue(
     if let Some(e) = estimate {
         input["estimate"] = json!(e);
     }
+    if let Some(ref p) = project {
+        if dry_run {
+            input["projectId"] = json!(p);
+        } else {
+            let project_id = resolve_project_id(&client, p, &output.cache).await?;
+            input["projectId"] = json!(project_id);
+        }
+    }
 
     // Dry run: show what would be created without actually creating
     if dry_run {
@@ -1450,6 +1465,7 @@ async fn create_issue(
                         "labels": labels,
                         "dueDate": due,
                         "estimate": estimate,
+                        "project": project,
                     }
                 }),
                 output,
@@ -1484,6 +1500,9 @@ async fn create_issue(
             }
             if let Some(e) = estimate {
                 println!("  Estimate:    {}", e);
+            }
+            if let Some(ref p) = project {
+                println!("  Project:     {}", p);
             }
         }
         return Ok(());

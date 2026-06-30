@@ -1503,6 +1503,7 @@ impl Drop for StdoutRedirectGuard {
 #[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::sync::{Mutex, OnceLock};
 
     #[cfg(unix)]
@@ -1647,6 +1648,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn test_resolve_pager_command_rejects_path_bypass() {
         let (program, args) = resolve_pager_command("/tmp/evil/less -R");
         assert_eq!(program, "less");
