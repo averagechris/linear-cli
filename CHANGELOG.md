@@ -9,6 +9,19 @@
 
 
 
+
+## v1.4.0 - 2026-06-30
+
+### Added
+
+- Add project flag to create.
+
+### Changed
+
+- Bump Rust dependency set.
+- Add Rust dependency maintenance tools.
+- Add clippy to jj lint.
+
 ## v1.3.0 - 2026-06-25
 
 ### Added
