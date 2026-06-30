@@ -6,26 +6,14 @@
 //! - Linux: Secret Service (requires D-Bus and a keyring daemon)
 
 use anyhow::{Context, Result};
-use keyring_core::{Entry, Error as KeyringError};
-use std::sync::OnceLock;
+use keyring::{Entry, Error as KeyringError};
 
 const SERVICE_NAME: &str = "linear-cli";
 
-fn ensure_keyring_store() -> Result<()> {
-    static INIT: OnceLock<std::result::Result<(), String>> = OnceLock::new();
-
-    match INIT.get_or_init(|| {
-        // Preserve the prior Linux behavior from the keyring 3.x configuration:
-        // prefer Secret Service over kernel keyutils for the native store.
-        keyring::use_native_store(true).map_err(|e| e.to_string())
-    }) {
-        Ok(()) => Ok(()),
-        Err(e) => anyhow::bail!("Failed to initialize OS keyring store: {}", e),
-    }
-}
-
 fn entry(service_name: &str, profile: &str) -> Result<Entry> {
-    ensure_keyring_store()?;
+    // keyring 4.x's default `v1` mode selects the platform-native store and
+    // uses Secret Service on Linux, preserving this fork's keyring-only
+    // credential behavior without falling back to plaintext config.
     Entry::new(service_name, profile).context("Failed to create keyring entry")
 }
 

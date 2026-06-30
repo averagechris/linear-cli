@@ -33,7 +33,7 @@ chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
 rand = "0.10"
 csv = "1"
-gix = { version = "0.84", features = ["blocking-network-client", "blocking-http-transport-reqwest-native-tls"] }
+gix = { version = "0.85", features = ["blocking-network-client", "blocking-http-transport-reqwest-native-tls"] }
 sha2 = "0.11"
 open = "5"
 url = "2"
@@ -41,7 +41,6 @@ base64 = "0.22"
 hmac = "0.13"
 hex = "0.4"
 tempfile = "3"
-keyring-core = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = "4"
