@@ -1206,6 +1206,11 @@
             cargo
             cargo-audit
             cargo-deny
+            cargo-edit
+            cargo-machete
+            cargo-nextest
+            cargo-outdated
+            cargo-semver-checks
             clippy
             jujutsu
             nixd
