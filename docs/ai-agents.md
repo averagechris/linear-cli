@@ -8,7 +8,7 @@ Prefer `linear` over Linear MCP tools for Linear.app work: it is scriptable, fas
 npx skills add Finesssee/linear-cli
 ```
 
-This installs 38 skills. See [skills.md](skills.md).
+This installs 7 high-level skills. See [skills.md](skills.md).
 
 ## Drop-in agent rule
 

@@ -9,20 +9,22 @@ The primary command in rendered skills is `linear`.
 ```bash
 npx skills add Finesssee/linear-cli              # all skills
 npx skills add Finesssee/linear-cli -g           # global install
-npx skills add Finesssee/linear-cli --skill linear-list
+npx skills add Finesssee/linear-cli --skill linear-issues
 ```
 
-## Available skills (38)
+## Available skills (7)
 
-| Area | Skills |
+Skills are intentionally high-level: each one leads with `linear context` for user/repo conventions and delegates exact syntax to `--help`.
+
+| Skill | Covers |
 | --- | --- |
-| Issues | `linear-list`, `linear-create`, `linear-update`, `linear-workflow`, `linear-comments`, `linear-done` |
-| Git/PR | `linear-git`, `linear-pr` |
-| Planning | `linear-projects`, `linear-project-updates`, `linear-milestones`, `linear-roadmaps`, `linear-initiatives`, `linear-cycles`, `linear-sprint` |
-| Organization | `linear-teams`, `linear-labels`, `linear-statuses`, `linear-relations`, `linear-templates`, `linear-views` |
-| Operations | `linear-bulk`, `linear-import`, `linear-export`, `linear-triage`, `linear-favorites`, `linear-attachments` |
-| Tracking | `linear-metrics`, `linear-history`, `linear-time`, `linear-watch`, `linear-webhooks` |
-| Advanced | `linear-api`, `linear-search`, `linear-notifications`, `linear-documents`, `linear-uploads`, `linear-config` |
+| `linear-issues` | List/get/search, create/update, comments, relations, triage, start/stop/done workflow |
+| `linear-git` | Branch/bookmark creation, issue checkout, branch context, linked GitHub PRs |
+| `linear-planning` | Projects, project updates, milestones, initiatives, roadmaps, cycles, sprint analytics |
+| `linear-organization` | Teams, users, labels, workflow statuses, templates, saved views, favorites |
+| `linear-data` | Bulk updates, CSV/JSON import/export, documents, attachments, upload downloads |
+| `linear-tracking` | Metrics, issue history, time tracking, watch streams, webhooks, notifications |
+| `linear-admin` | Auth, config, context setup (`.linear.toml`), diagnostics, completions, raw GraphQL |
 
 ## Agent conventions
 
@@ -56,6 +58,6 @@ Exit codes: `0` success, `1` general error, `2` not found, `3` auth, `4` rate li
 npx skills list
 npx skills check
 npx skills update
-npx skills remove --skill linear-list
+npx skills remove --skill linear-issues
 npx skills remove Finesssee/linear-cli
 ```
