@@ -582,10 +582,33 @@ async fn refresh_resources(resources: &[String], output: &OutputOptions) -> Resu
         results.push(result);
     }
 
+    // Partial failures are reported per-resource below; only a complete
+    // failure (e.g. bad resource name, no connectivity) is a hard error.
+    if !results.is_empty()
+        && results
+            .iter()
+            .all(|r| r["refreshed"].as_bool() != Some(true))
+    {
+        let reasons: Vec<String> = results
+            .iter()
+            .map(|r| {
+                format!(
+                    "{}: {}",
+                    r["resource"].as_str().unwrap_or("resource"),
+                    r["error"].as_str().unwrap_or("refresh failed")
+                )
+            })
+            .collect();
+        anyhow::bail!(
+            "No context resources could be refreshed ({})",
+            reasons.join("; ")
+        );
+    }
+
     if output.is_json() || output.has_template() {
         print_json_owned(json!(results), output)?;
     } else {
-        for result in results {
+        for result in &results {
             if result["refreshed"].as_bool().unwrap_or(false) {
                 println!(
                     "{}: refreshed {} items",

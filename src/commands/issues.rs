@@ -460,7 +460,6 @@ pub async fn handle(
             final_labels.extend(labels);
             final_labels.sort();
             final_labels.dedup();
-            let final_state = state.or(context_defaults.defaults.status.clone());
 
             create_issue(
                 &final_title,
@@ -468,7 +467,7 @@ pub async fn handle(
                 data_json,
                 final_description,
                 final_priority,
-                final_state,
+                state,
                 assignee,
                 final_labels,
                 due,
@@ -1388,7 +1387,12 @@ async fn create_issue(
     input["title"] = json!(final_title);
     input["teamId"] = json!(team_id);
     let data_state = take_string_input_alias(&mut input, &["state", "status"])?;
-    let final_state = state.clone().or(data_state);
+    let has_data_state_id = input_string(&input, "stateId")?.is_some();
+    let final_state = state_with_default(state.clone(), data_state, has_data_state_id, || {
+        crate::config::resolved_context()
+            .ok()
+            .and_then(|context| context.resolved.defaults.status)
+    });
 
     // CLI args override template values
     if let Some(ref desc) = description {
@@ -1829,6 +1833,26 @@ fn read_json_data(data: Option<&str>) -> Result<Option<Value>> {
 
 fn remove_input_field(input: &mut Value, field: &str) -> Option<Value> {
     input.as_object_mut().and_then(|map| map.remove(field))
+}
+
+/// Choose the state for issue creation.
+///
+/// Precedence: explicit CLI `-s/--state` > `--data` `state`/`status` alias >
+/// `--data` `stateId` (left untouched) > configured context default status.
+/// A configured default must never override any explicitly provided state.
+fn state_with_default(
+    cli_state: Option<String>,
+    data_state: Option<String>,
+    has_explicit_state_id: bool,
+    default_status: impl FnOnce() -> Option<String>,
+) -> Option<String> {
+    cli_state.or(data_state).or_else(|| {
+        if has_explicit_state_id {
+            None
+        } else {
+            default_status()
+        }
+    })
 }
 
 fn take_string_input_alias(input: &mut Value, fields: &[&str]) -> Result<Option<String>> {
@@ -2773,5 +2797,29 @@ mod tests {
         let input = json!({ "stateId": 42 });
         let err = input_string(&input, "stateId").unwrap_err();
         assert!(err.to_string().contains("stateId"));
+    }
+
+    #[test]
+    fn state_default_never_overrides_explicit_state() {
+        let default = || Some("Spec".to_string());
+
+        // CLI flag wins over everything.
+        assert_eq!(
+            state_with_default(Some("Done".into()), Some("Todo".into()), true, default).as_deref(),
+            Some("Done")
+        );
+        // --data state/status alias wins over the configured default.
+        assert_eq!(
+            state_with_default(None, Some("Todo".into()), false, default).as_deref(),
+            Some("Todo")
+        );
+        // An explicit --data stateId suppresses the configured default.
+        assert_eq!(state_with_default(None, None, true, default), None);
+        // The default applies only when nothing explicit was provided.
+        assert_eq!(
+            state_with_default(None, None, false, default).as_deref(),
+            Some("Spec")
+        );
+        assert_eq!(state_with_default(None, None, false, || None), None);
     }
 }
