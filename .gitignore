@@ -12,3 +12,5 @@ tmpclaude-*
 /.devenv
 /.direnv
 .envrc
+
+__pycache__/

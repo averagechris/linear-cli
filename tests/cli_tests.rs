@@ -1280,24 +1280,10 @@ fn test_count_only_flag_exists() {
     );
 }
 
-#[test]
-fn test_dry_run_output() {
-    // dry-run on create should not actually create, just preview
-    let (code, stdout, _stderr) = run_cli(&[
-        "issues",
-        "create",
-        "Test dry run",
-        "-t",
-        "FAKE",
-        "--dry-run",
-    ]);
-    // Should fail with auth error (no valid API key) but the flag should be accepted
-    // If the CLI parses --dry-run without error before API call, that's correct behavior
-    assert!(
-        code != 0 || stdout.contains("dry_run") || stdout.contains("DRY RUN"),
-        "dry-run should either output preview or fail at API level, not at arg parsing"
-    );
-}
+// NOTE: Do not add tests here that execute commands past argument parsing:
+// they construct a LinearClient, which reads the OS keyring and triggers a
+// Keychain password prompt on every rebuilt test binary. Command execution
+// is covered hermetically in tests/mock_api_tests.rs via --api-key/--api-url.
 
 #[test]
 fn test_json_output_format() {

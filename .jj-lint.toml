@@ -1,3 +1,4 @@
 lints = [
   { name = "ci clippy", command = "nix run .#ci-clippy" },
+  { name = "api mock fixtures", command = "python3 scripts/check_api_fixtures.py --online" },
 ]

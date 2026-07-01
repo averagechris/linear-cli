@@ -1,0 +1,113 @@
+{
+  "comment": "Realistic Linear GraphQL request/response pairs served by tests/mock_api_tests.rs. Each rule matches when ALL `match` substrings appear in the request body; `operation` mirrors the GraphQL document the CLI sends (kept verbatim-equivalent so scripts/check_api_fixtures.py can validate it against the live schema). Only include read-only operations or operations with required variables so the online check never mutates real data.",
+  "rules": [
+    {
+      "name": "viewer",
+      "match": ["viewer"],
+      "operation": "query { viewer { id name email displayName avatarUrl admin active createdAt url } }",
+      "response": {
+        "data": {
+          "viewer": {
+            "id": "8f9d2c1e-4b3a-4f6e-9c8d-1a2b3c4d5e6f",
+            "name": "Test User",
+            "email": "test.user@example.com",
+            "displayName": "test.user",
+            "avatarUrl": null,
+            "admin": false,
+            "active": true,
+            "createdAt": "2024-03-01T12:00:00.000Z",
+            "url": "https://linear.app/testorg/profiles/test.user"
+          }
+        }
+      }
+    },
+    {
+      "name": "teams_filtered",
+      "match": ["teams(", "eqIgnoreCase"],
+      "operation": "query($team: String!) { teams(first: 50, filter: { or: [{ key: { eqIgnoreCase: $team } }, { name: { eqIgnoreCase: $team } }] }) { nodes { id key name } } }",
+      "response": {
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "2a7c9f4b-8e1d-4c5a-b6f3-9d0e1f2a3b4c",
+                "key": "FAKE",
+                "name": "Fake Team"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "team_states",
+      "match": ["states(", "team("],
+      "operation": "query($teamId: String!, $first: Int, $after: String) { team(id: $teamId) { name states(first: $first, after: $after) { nodes { id name type color position description } pageInfo { hasNextPage endCursor } } } }",
+      "response": {
+        "data": {
+          "team": {
+            "name": "Fake Team",
+            "states": {
+              "nodes": [
+                {
+                  "id": "5b8e2d9f-1c4a-4e7b-8f6d-0a1b2c3d4e5f",
+                  "name": "Backlog",
+                  "type": "backlog",
+                  "color": "#bec2c8",
+                  "position": 0,
+                  "description": null
+                },
+                {
+                  "id": "6c9f3e0a-2d5b-4f8c-9a7e-1b2c3d4e5f6a",
+                  "name": "Todo",
+                  "type": "unstarted",
+                  "color": "#e2e2e2",
+                  "position": 1,
+                  "description": null
+                },
+                {
+                  "id": "7d0a4f1b-3e6c-4a9d-8b8f-2c3d4e5f6a7b",
+                  "name": "In Progress",
+                  "type": "started",
+                  "color": "#f2c94c",
+                  "position": 2,
+                  "description": null
+                },
+                {
+                  "id": "8e1b5a2c-4f7d-4b0e-9c9a-3d4e5f6a7b8c",
+                  "name": "Done",
+                  "type": "completed",
+                  "color": "#5e6ad2",
+                  "position": 3,
+                  "description": null
+                }
+              ],
+              "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "issue_create",
+      "match": ["issueCreate"],
+      "operation": "mutation($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier title url } } }",
+      "response": {
+        "data": {
+          "issueCreate": {
+            "success": true,
+            "issue": {
+              "id": "9f2c6b3d-5a8e-4c1f-8d0b-4e5f6a7b8c9d",
+              "identifier": "FAKE-123",
+              "title": "Test issue from mock",
+              "url": "https://linear.app/testorg/issue/FAKE-123/test-issue-from-mock"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

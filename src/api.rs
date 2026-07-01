@@ -19,6 +19,26 @@ use std::sync::OnceLock;
 const LINEAR_API_URL: &str = "https://api.linear.app/graphql";
 const LINEAR_UPLOADS_HOST: &str = "uploads.linear.app";
 
+/// Resolve the GraphQL endpoint for this invocation.
+///
+/// A custom endpoint (`--api-url`, for tests/mocks) is only honored together
+/// with an explicit `--api-key`, so keyring credentials can never be sent to
+/// a non-default endpoint. `explicit_key` marks clients constructed with a
+/// caller-provided key (e.g. auth validation flows).
+fn graphql_endpoint(explicit_key: bool) -> Result<String> {
+    match config::api_url_override() {
+        Some(url) => {
+            if !explicit_key && !config::api_key_override_present() {
+                anyhow::bail!(
+                    "--api-url requires an explicit --api-key; keyring credentials are never sent to a custom endpoint"
+                );
+            }
+            Ok(url)
+        }
+        None => Ok(LINEAR_API_URL.to_string()),
+    }
+}
+
 fn sanitize_remote_error_body(body: &str) -> Option<String> {
     let trimmed = body.trim();
     if trimmed.is_empty() {
@@ -754,6 +774,7 @@ pub struct LinearClient {
     client: Client,
     auth: Arc<RwLock<AuthState>>,
     retry: RetryConfig,
+    endpoint: String,
 }
 
 impl LinearClient {
@@ -769,6 +790,7 @@ impl LinearClient {
             client,
             auth: Arc::new(RwLock::new(auth)),
             retry,
+            endpoint: graphql_endpoint(false)?,
         })
     }
 
@@ -783,6 +805,7 @@ impl LinearClient {
             client,
             auth: Arc::new(RwLock::new(auth)),
             retry: RetryConfig::new(retry_count),
+            endpoint: graphql_endpoint(false)?,
         })
     }
 
@@ -796,6 +819,7 @@ impl LinearClient {
             client,
             auth: Arc::new(RwLock::new(AuthState::ApiKey(api_key))),
             retry: default_retry_config(),
+            endpoint: graphql_endpoint(true)?,
         })
     }
 
@@ -817,7 +841,7 @@ impl LinearClient {
 
         let response = self
             .client
-            .post(LINEAR_API_URL)
+            .post(&self.endpoint)
             .header("Content-Type", "application/json")
             .header("Authorization", &auth_header)
             .json(&body)

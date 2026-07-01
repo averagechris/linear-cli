@@ -179,6 +179,11 @@ struct Cli {
     #[arg(long, global = true)]
     api_key: Option<String>,
 
+    /// Override the GraphQL endpoint for this invocation (tests/mocks only).
+    /// Requires --api-key; keyring credentials are never sent to a custom endpoint.
+    #[arg(long, global = true, hide = true, requires = "api_key")]
+    api_url: Option<String>,
+
     /// Override workspace profile for this invocation
     #[arg(long, global = true)]
     profile: Option<String>,
@@ -992,7 +997,11 @@ async fn async_main() -> Result<i32> {
         width: cli.width,
         no_truncate: cli.no_truncate,
     });
-    config::set_runtime_overrides(cli.api_key.clone(), cli.profile.clone());
+    config::set_runtime_overrides(
+        cli.api_key.clone(),
+        cli.profile.clone(),
+        cli.api_url.clone(),
+    );
     api::set_default_retry(cli.retry);
     let filters = parse_filters(&cli.filter)?;
     let pagination = PaginationOptions {

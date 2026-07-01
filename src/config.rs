@@ -297,14 +297,20 @@ pub struct ResolvedLinearContext {
 struct RuntimeOverrides {
     api_key: Option<String>,
     profile: Option<String>,
+    api_url: Option<String>,
 }
 
 static RUNTIME_OVERRIDES: OnceLock<RuntimeOverrides> = OnceLock::new();
 
-pub fn set_runtime_overrides(api_key: Option<String>, profile: Option<String>) {
+pub fn set_runtime_overrides(
+    api_key: Option<String>,
+    profile: Option<String>,
+    api_url: Option<String>,
+) {
     let _ = RUNTIME_OVERRIDES.set(RuntimeOverrides {
         api_key: api_key.filter(|value| !value.trim().is_empty()),
         profile: profile.filter(|value| !value.trim().is_empty()),
+        api_url: api_url.filter(|value| !value.trim().is_empty()),
     });
 }
 
@@ -322,6 +328,13 @@ fn api_key_override() -> Option<String> {
 
 pub fn api_key_override_present() -> bool {
     api_key_override().is_some()
+}
+
+/// Custom GraphQL endpoint for this invocation (tests/debugging only).
+/// Only honored together with an explicit `--api-key`; keyring credentials
+/// are never sent to a non-default endpoint.
+pub fn api_url_override() -> Option<String> {
+    runtime_overrides().api_url.clone()
 }
 
 pub fn profile_override_name() -> Option<String> {
