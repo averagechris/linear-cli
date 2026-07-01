@@ -88,29 +88,27 @@ impl ContextDefaults {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+/// How agents should populate a field. Kept intentionally small: `infer_or_ask`
+/// is the canonical "infer only when clearly implied, otherwise ask" mode.
+/// Legacy synonyms from earlier drafts are accepted as aliases on read.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum FieldMode {
     Off,
     Default,
     Infer,
     Suggest,
+    #[serde(alias = "ask_or_leave_unset")]
     Ask,
-    AskIfAmbiguous,
-    AskOrInfer,
-    AskOrLeaveUnset,
+    #[default]
+    #[serde(alias = "ask_if_ambiguous", alias = "ask_or_infer")]
     InferOrAsk,
-}
-
-impl Default for FieldMode {
-    fn default() -> Self {
-        Self::AskIfAmbiguous
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
 pub struct FieldPolicy {
-    #[serde(default, skip_serializing_if = "is_default")]
+    /// Always serialized so agents see an explicit mode contract.
+    #[serde(default)]
     pub mode: FieldMode,
     #[serde(default, skip_serializing_if = "is_false")]
     pub required: bool,
@@ -204,7 +202,8 @@ pub struct LabelGroupPolicy {
     pub required: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cardinality: Option<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    /// Always serialized so agents see an explicit mode contract.
+    #[serde(default)]
     pub mode: FieldMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default: Option<String>,
@@ -284,10 +283,6 @@ fn is_false(value: &bool) -> bool {
 
 fn is_zero(value: &u32) -> bool {
     *value == 0
-}
-
-fn is_default<T: Default + PartialEq>(value: &T) -> bool {
-    value == &T::default()
 }
 
 #[derive(Debug, Clone)]

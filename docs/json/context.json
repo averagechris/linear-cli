@@ -37,7 +37,7 @@
         "guidance": "Use initiatives only when strategically relevant or explicitly implied. Do not guess."
       },
       "estimate": {
-        "mode": "ask_or_infer",
+        "mode": "infer_or_ask",
         "required_when": "before_cycle",
         "guidance_ref": "issue_create.estimation"
       }

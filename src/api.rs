@@ -512,23 +512,13 @@ pub fn clear_cached_statuses_for_team(team_id: &str, cache_opts: &CacheOptions) 
     }
 }
 
-async fn fetch_team_statuses_for_cache(client: &LinearClient, team_id: &str) -> Result<Value> {
-    let team_query = r#"
-        query($teamId: String!) {
-            team(id: $teamId) { name }
-        }
-    "#;
-    let team_result = client
-        .query(team_query, Some(json!({ "teamId": team_id })))
-        .await?;
-    let team = &team_result["data"]["team"];
-    if team.is_null() {
-        anyhow::bail!("Team not found while resolving statuses")
-    }
-
+/// Fetch all workflow states for a team in the canonical statuses cache shape:
+/// `{ "team_name": ..., "states": [...] }`, keyed by team UUID by callers.
+pub async fn fetch_team_statuses_for_cache(client: &LinearClient, team_id: &str) -> Result<Value> {
     let query = r#"
         query($teamId: String!, $first: Int, $after: String) {
             team(id: $teamId) {
+                name
                 states(first: $first, after: $after) {
                     nodes {
                         id
@@ -544,26 +534,37 @@ async fn fetch_team_statuses_for_cache(client: &LinearClient, team_id: &str) -> 
         }
     "#;
 
-    let mut vars = serde_json::Map::new();
-    vars.insert("teamId".to_string(), json!(team_id));
-    let pagination = PaginationOptions {
-        all: true,
-        page_size: Some(250),
-        ..Default::default()
-    };
-    let states = paginate_nodes(
-        client,
-        query,
-        vars,
-        &["data", "team", "states", "nodes"],
-        &["data", "team", "states", "pageInfo"],
-        &pagination,
-        250,
-    )
-    .await?;
+    let mut team_name = String::new();
+    let mut states: Vec<Value> = Vec::new();
+    let mut after: Option<String> = None;
+    loop {
+        let mut vars = json!({ "teamId": team_id, "first": 250 });
+        if let Some(cursor) = &after {
+            vars["after"] = json!(cursor);
+        }
+        let result = client.query(query, Some(vars)).await?;
+        let team = &result["data"]["team"];
+        if team.is_null() {
+            anyhow::bail!("Team not found while resolving statuses")
+        }
+        if let Some(name) = team["name"].as_str() {
+            team_name = name.to_string();
+        }
+        if let Some(nodes) = team["states"]["nodes"].as_array() {
+            states.extend(nodes.iter().cloned());
+        }
+        let page_info = &team["states"]["pageInfo"];
+        if page_info["hasNextPage"].as_bool() != Some(true) {
+            break;
+        }
+        match page_info["endCursor"].as_str() {
+            Some(cursor) => after = Some(cursor.to_string()),
+            None => break,
+        }
+    }
 
     Ok(json!({
-        "team_name": team["name"].as_str().unwrap_or(""),
+        "team_name": team_name,
         "states": states,
     }))
 }

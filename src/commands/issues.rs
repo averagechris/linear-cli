@@ -1556,6 +1556,10 @@ async fn create_issue(
     {
         Ok(result) => result,
         Err(err) => {
+            // Unlike update, create is deliberately NOT retried after a
+            // cache-invalidation: an ambiguous failure (e.g. timeout) could
+            // otherwise create a duplicate issue. We only drop the possibly
+            // stale statuses cache so the user's retry resolves fresh IDs.
             if let Some((team_id, _state_name)) = &status_retry {
                 clear_cached_statuses_for_team(team_id, &output.cache);
             }
@@ -1758,6 +1762,9 @@ async fn update_issue(
     {
         Ok(result) => result,
         Err(err) => {
+            // Updates are idempotent, so a failure after resolving a status
+            // name through the cache gets one retry with freshly fetched
+            // status IDs (the cached entry may have been stale/renamed).
             if let Some((team_id, state_name)) = &status_retry {
                 clear_cached_statuses_for_team(team_id, &output.cache);
                 let state_id =
