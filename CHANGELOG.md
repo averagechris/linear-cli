@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+
+## v1.5.1 - 2026-07-01
+
+### Changed
+
+- Consolidate 38 skills into 7 context-driven areas.
+
 ## v1.5.0 - 2026-07-01
 
 ### Added

@@ -1,6 +1,6 @@
 [package]
 name = "linear-cli"
-version = "1.5.0"
+version = "1.5.1"
 edition = "2021"
 description = "A powerful CLI for Linear.app - manage issues, projects, cycles, and more from your terminal"
 authors = ["scwrcd"]
