@@ -6,8 +6,8 @@ use std::io::{self, BufRead};
 use tabled::Table;
 
 use crate::api::{
-    resolve_label_id, resolve_project_id, resolve_state_id, resolve_team_id, resolve_user_id,
-    LinearClient,
+    clear_cached_statuses_for_team, resolve_label_id, resolve_project_id, resolve_state_id_cached,
+    resolve_team_id, resolve_user_id, LinearClient,
 };
 use crate::cache::CacheOptions;
 use crate::display_options;
@@ -1380,9 +1380,15 @@ async fn create_issue(
         Some(_) => anyhow::bail!("--data must be a JSON object"),
         None => json!({}),
     };
+    let mut status_retry: Option<(String, String)> = None;
+    // `team` is accepted as an agent-friendly --data convenience for team
+    // discovery, but Linear's IssueCreateInput only accepts teamId.
+    remove_input_field(&mut input, "team");
 
     input["title"] = json!(final_title);
     input["teamId"] = json!(team_id);
+    let data_state = take_string_input_alias(&mut input, &["state", "status"])?;
+    let final_state = state.clone().or(data_state);
 
     // CLI args override template values
     if let Some(ref desc) = description {
@@ -1391,12 +1397,24 @@ async fn create_issue(
     if let Some(p) = priority {
         input["priority"] = json!(p);
     }
-    if let Some(ref s) = state {
+    if let Some(ref s) = final_state {
         if dry_run {
             input["stateId"] = json!(s);
         } else {
-            let state_id = resolve_state_id(&client, &team_id, s).await?;
+            let state_id = resolve_state_id_cached(&client, &team_id, s, &output.cache).await?;
             input["stateId"] = json!(state_id);
+            if !is_uuid(s) {
+                status_retry = Some((team_id.clone(), s.clone()));
+            }
+        }
+    } else if let Some(raw_state_id) = input_string(&input, "stateId")? {
+        // Be forgiving when agents provide `stateId` with a human-readable
+        // status name. Linear requires the UUID; resolve names before sending.
+        if !dry_run && !is_uuid(&raw_state_id) {
+            let state_id =
+                resolve_state_id_cached(&client, &team_id, &raw_state_id, &output.cache).await?;
+            input["stateId"] = json!(state_id);
+            status_retry = Some((team_id.clone(), raw_state_id));
         }
     }
     if let Some(ref a) = assignee {
@@ -1532,9 +1550,18 @@ async fn create_issue(
         }
     "#;
 
-    let result = client
+    let result = match client
         .mutate(mutation, Some(json!({ "input": input })))
-        .await?;
+        .await
+    {
+        Ok(result) => result,
+        Err(err) => {
+            if let Some((team_id, _state_name)) = &status_retry {
+                clear_cached_statuses_for_team(team_id, &output.cache);
+            }
+            return Err(err);
+        }
+    };
 
     if result["data"]["issueCreate"]["success"].as_bool() == Some(true) {
         let issue = &result["data"]["issueCreate"]["issue"];
@@ -1598,6 +1625,8 @@ async fn update_issue(
         Some(_) => anyhow::bail!("--data must be a JSON object"),
         None => json!({}),
     };
+    let mut status_retry: Option<(String, String)> = None;
+    let data_state = take_string_input_alias(&mut input, &["state", "status"])?;
 
     if let Some(t) = title {
         input["title"] = json!(t);
@@ -1608,24 +1637,30 @@ async fn update_issue(
     if let Some(p) = priority {
         input["priority"] = json!(p);
     }
-    if let Some(s) = state {
+    let final_state = state.or(data_state);
+    if let Some(s) = final_state {
         if dry_run {
             input["stateId"] = json!(s);
         } else {
-            // Fetch the issue's team ID to resolve state name
-            let team_query = r#"
-                query($id: String!) {
-                    issue(id: $id) {
-                        team { id }
-                    }
-                }
-            "#;
-            let team_result = client.query(team_query, Some(json!({ "id": id }))).await?;
-            let issue_team_id = team_result["data"]["issue"]["team"]["id"]
-                .as_str()
-                .ok_or_else(|| anyhow::anyhow!("Could not determine team for issue {}", id))?;
-            let state_id = resolve_state_id(&client, issue_team_id, &s).await?;
+            let issue_team_id = fetch_issue_team_id(&client, id).await?;
+            let state_id =
+                resolve_state_id_cached(&client, &issue_team_id, &s, &output.cache).await?;
             input["stateId"] = json!(state_id);
+            if !is_uuid(&s) {
+                status_retry = Some((issue_team_id, s));
+            }
+        }
+    } else if let Some(raw_state_id) = input_string(&input, "stateId")? {
+        // `--data '{"stateId":"In Progress"}'` is a common agent mistake
+        // caused by the API's UUID-only field name. Resolve it instead of
+        // making agents list statuses and copy IDs by hand.
+        if !dry_run && !is_uuid(&raw_state_id) {
+            let issue_team_id = fetch_issue_team_id(&client, id).await?;
+            let state_id =
+                resolve_state_id_cached(&client, &issue_team_id, &raw_state_id, &output.cache)
+                    .await?;
+            input["stateId"] = json!(state_id);
+            status_retry = Some((issue_team_id, raw_state_id));
         }
     }
     if let Some(a) = assignee {
@@ -1717,9 +1752,25 @@ async fn update_issue(
         }
     "#;
 
-    let result = client
-        .mutate(mutation, Some(json!({ "id": id, "input": input })))
-        .await?;
+    let result = match client
+        .mutate(mutation, Some(json!({ "id": id, "input": input.clone() })))
+        .await
+    {
+        Ok(result) => result,
+        Err(err) => {
+            if let Some((team_id, state_name)) = &status_retry {
+                clear_cached_statuses_for_team(team_id, &output.cache);
+                let state_id =
+                    resolve_state_id_cached(&client, team_id, state_name, &output.cache).await?;
+                input["stateId"] = json!(state_id);
+                client
+                    .mutate(mutation, Some(json!({ "id": id, "input": input })))
+                    .await?
+            } else {
+                return Err(err);
+            }
+        }
+    };
 
     if result["data"]["issueUpdate"]["success"].as_bool() == Some(true) {
         let issue = &result["data"]["issueUpdate"]["issue"];
@@ -1767,6 +1818,51 @@ fn read_json_data(data: Option<&str>) -> Result<Option<Value>> {
     };
     let value: Value = serde_json::from_str(&raw)?;
     Ok(Some(value))
+}
+
+fn remove_input_field(input: &mut Value, field: &str) -> Option<Value> {
+    input.as_object_mut().and_then(|map| map.remove(field))
+}
+
+fn take_string_input_alias(input: &mut Value, fields: &[&str]) -> Result<Option<String>> {
+    for field in fields {
+        if let Some(value) = remove_input_field(input, field) {
+            return value.as_str().map(|s| Some(s.to_string())).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "--data field '{}' must be a string when used as a state alias",
+                    field
+                )
+            });
+        }
+    }
+    Ok(None)
+}
+
+fn input_string(input: &Value, field: &str) -> Result<Option<String>> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    value.as_str().map(|s| Some(s.to_string())).ok_or_else(|| {
+        anyhow::anyhow!(
+            "--data field '{}' must be a string when resolving a state",
+            field
+        )
+    })
+}
+
+async fn fetch_issue_team_id(client: &LinearClient, id: &str) -> Result<String> {
+    let team_query = r#"
+        query($id: String!) {
+            issue(id: $id) {
+                team { id }
+            }
+        }
+    "#;
+    let team_result = client.query(team_query, Some(json!({ "id": id }))).await?;
+    team_result["data"]["issue"]["team"]["id"]
+        .as_str()
+        .map(ToString::to_string)
+        .ok_or_else(|| anyhow::anyhow!("Could not determine team for issue {}", id))
 }
 
 async fn delete_issue(id: &str, force: bool, agent_opts: AgentOptions) -> Result<()> {
@@ -2646,5 +2742,29 @@ mod tests {
             build_issue_assignee_filter(name),
             serde_json::json!({ "name": { "eqIgnoreCase": name } })
         );
+    }
+
+    #[test]
+    fn take_string_input_alias_moves_state_to_resolvable_value() {
+        let mut input = json!({ "state": "In Progress", "title": "Audit tests" });
+        let state = take_string_input_alias(&mut input, &["state", "status"]).unwrap();
+        assert_eq!(state.as_deref(), Some("In Progress"));
+        assert!(input.get("state").is_none());
+        assert_eq!(input["title"], "Audit tests");
+    }
+
+    #[test]
+    fn take_string_input_alias_accepts_status_synonym() {
+        let mut input = json!({ "status": "Done" });
+        let state = take_string_input_alias(&mut input, &["state", "status"]).unwrap();
+        assert_eq!(state.as_deref(), Some("Done"));
+        assert!(input.get("status").is_none());
+    }
+
+    #[test]
+    fn input_string_rejects_non_string_state_id() {
+        let input = json!({ "stateId": 42 });
+        let err = input_string(&input, "stateId").unwrap_err();
+        assert!(err.to_string().contains("stateId"));
     }
 }

@@ -466,6 +466,120 @@ pub async fn resolve_state_id(client: &LinearClient, team_id: &str, state: &str)
     anyhow::bail!("State '{}' not found for team", state)
 }
 
+/// Resolve a team-scoped state name to a UUID using the statuses cache.
+///
+/// The cache key is the Linear team UUID, so no organization-specific status IDs
+/// are hardcoded or shared across teams/workspaces. Entries honor the standard
+/// cache TTL and can be bypassed with `--no-cache`.
+pub async fn resolve_state_id_cached(
+    client: &LinearClient,
+    team_id: &str,
+    state: &str,
+    cache_opts: &CacheOptions,
+) -> Result<String> {
+    if is_uuid(state) {
+        return Ok(state.to_string());
+    }
+
+    if !cache_opts.no_cache {
+        let cache = Cache::with_ttl(cache_opts.effective_ttl_seconds())?;
+        if let Some(cached) = cache.get_keyed(CacheType::Statuses, team_id) {
+            if let Some(id) = find_state_id_in_cache(&cached, state) {
+                return Ok(id);
+            }
+        }
+    }
+
+    let cached = fetch_team_statuses_for_cache(client, team_id).await?;
+    if !cache_opts.no_cache {
+        let cache = Cache::with_ttl(cache_opts.effective_ttl_seconds())?;
+        let _ = cache.set_keyed(CacheType::Statuses, team_id, cached.clone());
+    }
+
+    if let Some(id) = find_state_id_in_cache(&cached, state) {
+        return Ok(id);
+    }
+
+    anyhow::bail!("State '{}' not found for team", state)
+}
+
+pub fn clear_cached_statuses_for_team(team_id: &str, cache_opts: &CacheOptions) {
+    if cache_opts.no_cache {
+        return;
+    }
+    if let Ok(cache) = Cache::with_ttl(cache_opts.effective_ttl_seconds()) {
+        let _ = cache.clear_keyed(CacheType::Statuses, team_id);
+    }
+}
+
+async fn fetch_team_statuses_for_cache(client: &LinearClient, team_id: &str) -> Result<Value> {
+    let team_query = r#"
+        query($teamId: String!) {
+            team(id: $teamId) { name }
+        }
+    "#;
+    let team_result = client
+        .query(team_query, Some(json!({ "teamId": team_id })))
+        .await?;
+    let team = &team_result["data"]["team"];
+    if team.is_null() {
+        anyhow::bail!("Team not found while resolving statuses")
+    }
+
+    let query = r#"
+        query($teamId: String!, $first: Int, $after: String) {
+            team(id: $teamId) {
+                states(first: $first, after: $after) {
+                    nodes {
+                        id
+                        name
+                        type
+                        color
+                        position
+                        description
+                    }
+                    pageInfo { hasNextPage endCursor }
+                }
+            }
+        }
+    "#;
+
+    let mut vars = serde_json::Map::new();
+    vars.insert("teamId".to_string(), json!(team_id));
+    let pagination = PaginationOptions {
+        all: true,
+        page_size: Some(250),
+        ..Default::default()
+    };
+    let states = paginate_nodes(
+        client,
+        query,
+        vars,
+        &["data", "team", "states", "nodes"],
+        &["data", "team", "states", "pageInfo"],
+        &pagination,
+        250,
+    )
+    .await?;
+
+    Ok(json!({
+        "team_name": team["name"].as_str().unwrap_or(""),
+        "states": states,
+    }))
+}
+
+fn find_state_id_in_cache(cached: &Value, state: &str) -> Option<String> {
+    let states = cached.get("states")?.as_array()?;
+    states.iter().find_map(|s| {
+        let name = s["name"].as_str().unwrap_or("");
+        if name.eq_ignore_ascii_case(state) {
+            s["id"].as_str().map(ToString::to_string)
+        } else {
+            None
+        }
+    })
+}
+
 fn find_team_id(teams: &[Value], team: &str) -> Option<String> {
     if let Some(team_data) = teams
         .iter()
@@ -957,6 +1071,32 @@ mod tests {
         let body = json!({ "body": "<html>502</html>" });
         let refined = refine_http_error(http_err, &body);
         assert_eq!(refined.kind, ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn find_state_id_in_cache_matches_status_name_case_insensitively() {
+        let cached = json!({
+            "team_name": "Engineering",
+            "states": [
+                { "id": "todo-id", "name": "Todo" },
+                { "id": "started-id", "name": "In Progress" }
+            ]
+        });
+
+        assert_eq!(
+            find_state_id_in_cache(&cached, "in progress").as_deref(),
+            Some("started-id")
+        );
+    }
+
+    #[test]
+    fn find_state_id_in_cache_returns_none_for_missing_status() {
+        let cached = json!({
+            "team_name": "Engineering",
+            "states": [{ "id": "todo-id", "name": "Todo" }]
+        });
+
+        assert!(find_state_id_in_cache(&cached, "Done").is_none());
     }
 
     #[test]

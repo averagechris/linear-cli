@@ -1906,7 +1906,8 @@ async fn fetch_context_issue(issue_id: &str, retry: u32) -> Option<serde_json::V
                 id
                 identifier
                 title
-                state { name }
+                state { id name type }
+                team { id key name }
                 assignee { name }
                 priority
                 url
@@ -2003,6 +2004,10 @@ fn build_agent_instructions(
             status
         ));
     }
+    instructions.push(
+        "Use `linear i start ISSUE_ID` to begin work, or `linear i update ISSUE_ID -s \"STATUS NAME\"`; the CLI resolves team-scoped status names to Linear's required stateId UUIDs."
+            .to_string(),
+    );
     for group in &context.resolved.label_groups {
         if group.required {
             instructions.push(format!(

@@ -332,6 +332,26 @@ impl Cache {
         self.set(cache_type, data)
     }
 
+    /// Clear a specific key within a keyed cache type.
+    pub fn clear_keyed(&self, cache_type: CacheType, key: &str) -> Result<()> {
+        let path = self.cache_path(cache_type);
+        if !path.exists() {
+            return Ok(());
+        }
+
+        let mut data = fs::read_to_string(&path)
+            .ok()
+            .and_then(|content| serde_json::from_str::<CacheEntry>(&content).ok())
+            .map(|entry| entry.data)
+            .unwrap_or_else(|| json!({}));
+
+        if let Some(obj) = data.as_object_mut() {
+            obj.remove(key);
+        }
+
+        self.set(cache_type, data)
+    }
+
     /// Get cache status for all types
     pub fn status(&self) -> Vec<CacheStatus> {
         CacheType::all()
@@ -494,6 +514,30 @@ mod tests {
     fn test_cache_type_display_name() {
         assert_eq!(CacheType::Teams.display_name(), "Teams");
         assert_eq!(CacheType::Users.display_name(), "Users");
+    }
+
+    #[test]
+    fn test_clear_keyed_removes_only_requested_key() {
+        let temp = tempfile::tempdir().unwrap();
+        let cache = Cache {
+            cache_dir: temp.path().to_path_buf(),
+            ttl_seconds: 3600,
+        };
+
+        cache
+            .set_keyed(CacheType::Statuses, "team-a", json!({ "states": [1] }))
+            .unwrap();
+        cache
+            .set_keyed(CacheType::Statuses, "team-b", json!({ "states": [2] }))
+            .unwrap();
+
+        cache.clear_keyed(CacheType::Statuses, "team-a").unwrap();
+
+        assert!(cache.get_keyed(CacheType::Statuses, "team-a").is_none());
+        assert_eq!(
+            cache.get_keyed(CacheType::Statuses, "team-b").unwrap()["states"][0],
+            2
+        );
     }
 
     #[test]
