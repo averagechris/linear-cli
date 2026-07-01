@@ -1,14 +1,37 @@
 use anyhow::Result;
 use clap::{Args, Subcommand};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 
 use crate::api;
 use crate::cache::{Cache, CacheOptions, CacheType};
 use crate::config;
 use crate::output::{print_json_owned, OutputOptions};
+use crate::pagination::{paginate_nodes, PaginationOptions};
 use crate::text::is_uuid;
 use crate::AgentOptions;
+
+/// Page size for context resource refreshes (Linear's maximum page size).
+const CONTEXT_FETCH_PAGE_SIZE: usize = 250;
+
+/// Fetch every page of a context resource. These caches back agent-facing
+/// option lists, so truncating large workspaces would silently hide options.
+async fn fetch_all_context_nodes(query: &str, root: &str) -> Result<Vec<Value>> {
+    let client = api::LinearClient::new()?;
+    paginate_nodes(
+        &client,
+        query,
+        Map::new(),
+        &["data", root, "nodes"],
+        &["data", root, "pageInfo"],
+        &PaginationOptions {
+            all: true,
+            ..Default::default()
+        },
+        CONTEXT_FETCH_PAGE_SIZE,
+    )
+    .await
+}
 
 #[derive(Subcommand)]
 pub enum ContextCommands {
@@ -895,67 +918,51 @@ fn label_options_for_policy(
 }
 
 async fn fetch_context_teams() -> Result<Vec<Value>> {
-    let client = api::LinearClient::new()?;
     let query = r#"
-        query {
-            teams(first: 50) {
+        query($first: Int, $after: String) {
+            teams(first: $first, after: $after) {
                 nodes { id name key }
+                pageInfo { hasNextPage endCursor }
             }
         }
     "#;
-    let result = client.query(query, None).await?;
-    Ok(result["data"]["teams"]["nodes"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default())
+    fetch_all_context_nodes(query, "teams").await
 }
 
 async fn fetch_context_projects() -> Result<Vec<Value>> {
-    let client = api::LinearClient::new()?;
     let query = r#"
-        query {
-            projects(first: 100, includeArchived: false, orderBy: updatedAt) {
+        query($first: Int, $after: String) {
+            projects(first: $first, after: $after, includeArchived: false, orderBy: updatedAt) {
                 nodes { id name state url startDate targetDate }
+                pageInfo { hasNextPage endCursor }
             }
         }
     "#;
-    let result = client.query(query, None).await?;
-    Ok(result["data"]["projects"]["nodes"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default())
+    fetch_all_context_nodes(query, "projects").await
 }
 
 async fn fetch_context_initiatives() -> Result<Vec<Value>> {
-    let client = api::LinearClient::new()?;
     let query = r#"
-        query {
-            initiatives(first: 100) {
+        query($first: Int, $after: String) {
+            initiatives(first: $first, after: $after) {
                 nodes { id name status description progress }
+                pageInfo { hasNextPage endCursor }
             }
         }
     "#;
-    let result = client.query(query, None).await?;
-    Ok(result["data"]["initiatives"]["nodes"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default())
+    fetch_all_context_nodes(query, "initiatives").await
 }
 
 async fn fetch_context_labels() -> Result<Vec<Value>> {
-    let client = api::LinearClient::new()?;
     let query = r#"
-        query {
-            issueLabels(first: 250) {
+        query($first: Int, $after: String) {
+            issueLabels(first: $first, after: $after) {
                 nodes { id name color description parent { id name } }
+                pageInfo { hasNextPage endCursor }
             }
         }
     "#;
-    let result = client.query(query, None).await?;
-    Ok(result["data"]["issueLabels"]["nodes"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default())
+    fetch_all_context_nodes(query, "issueLabels").await
 }
 
 fn build_context_config(args: ContextInitArgs) -> config::LinearContextConfig {

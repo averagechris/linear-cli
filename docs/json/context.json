@@ -6,7 +6,8 @@
     "id": "issue_uuid",
     "identifier": "LIN-123",
     "title": "Fix login bug",
-    "state": { "name": "In Progress" },
+    "state": { "id": "state_uuid", "name": "In Progress", "type": "started" },
+    "team": { "id": "team_uuid", "key": "EPD", "name": "Engineering" },
     "assignee": { "name": "Ada Lovelace" },
     "priority": 2,
     "url": "https://linear.app/team/issue/LIN-123"
@@ -21,11 +22,19 @@
   "defaults": {
     "team": "EPD",
     "status": "Spec",
-    "labels": []
+    "labels": ["needs-triage"]
   },
   "issueCreate": {
     "onAmbiguity": "ask",
     "fields": {
+      "team": {
+        "mode": "default",
+        "required": true
+      },
+      "status": {
+        "mode": "default",
+        "required": true
+      },
       "project": {
         "mode": "infer_or_ask",
         "discovery": "projects",
@@ -44,8 +53,8 @@
     },
     "estimation": {
       "scale": "fibonacci",
-      "values": [0, 1, 2, 3, 5, 8],
-      "guidance": "Use relative complexity, not hours. Ask when uncertain."
+      "values": [0.0, 1.0, 2.0, 3.0, 5.0, 8.0],
+      "guidance": "Use relative complexity, not hours. 1=tiny, 2=small, 3=medium, 5=large, 8=split. Ask when uncertain."
     },
     "labelGroups": [
       {
@@ -54,6 +63,10 @@
         "required": true,
         "cardinality": "exactly_one",
         "mode": "infer_or_ask",
+        "default": null,
+        "guidance": "Every issue must have exactly one domain label. Infer only when clear; otherwise fetch options and ask.",
+        "options": [],
+        "hints": [],
         "discovery": {
           "command": "linear context options labels --group domain --output json --compact",
           "cacheKey": "labels.domain",
@@ -69,6 +82,10 @@
         "required": true,
         "cardinality": "exactly_one",
         "mode": "infer_or_ask",
+        "default": null,
+        "guidance": "Every issue must have exactly one type label. Infer only when clear; otherwise fetch options and ask.",
+        "options": [],
+        "hints": [],
         "discovery": {
           "command": "linear context options labels --group type --output json --compact",
           "cacheKey": "labels.type",
@@ -77,11 +94,30 @@
           "includeNone": false,
           "prompt": "Which type label best matches this work?"
         }
+      },
+      {
+        "key": "execution",
+        "linearGroup": "execution",
+        "required": false,
+        "cardinality": "at_most_one",
+        "mode": "default",
+        "default": "agentic",
+        "guidance": "Apply only when this execution-mode label is meaningful for your org.",
+        "options": [],
+        "hints": [],
+        "discovery": {
+          "command": "linear context options labels --group execution --output json --compact",
+          "cacheKey": "labels.execution",
+          "presentationMax": 12,
+          "multiSelect": false,
+          "includeNone": true,
+          "prompt": null
+        }
       }
     ]
   },
   "cache": {
-    "ttl": { "labels": "7d", "projects": "6h", "initiatives": "24h" }
+    "ttl": { "labels": "7d", "statuses": "7d", "teams": "7d", "projects": "6h", "initiatives": "24h" }
   },
   "configured": true,
   "completeness": {
@@ -94,7 +130,10 @@
   "agentInstructions": [
     "Default to team EPD when creating issues unless the user specifies another team.",
     "Default new issues to status Spec unless the user specifies another status.",
+    "Use `linear i start ISSUE_ID` to begin work, or `linear i update ISSUE_ID -s \"STATUS NAME\"`; the CLI resolves team-scoped status names to Linear's required stateId UUIDs.",
     "Issue creation requires exactly_one label group 'domain' (Which domain label best matches this work?); infer only when clear, otherwise fetch options and ask the user.",
-    "Issue creation requires exactly_one label group 'type' (Which type label best matches this work?); infer only when clear, otherwise fetch options and ask the user."
+    "Issue creation requires exactly_one label group 'type' (Which type label best matches this work?); infer only when clear, otherwise fetch options and ask the user.",
+    "Use the configured estimation rubric; infer only when reasonably clear and ask when uncertain.",
+    "Do not invent projects, initiatives, or labels; fetch options and ask when ambiguous."
   ]
 }
