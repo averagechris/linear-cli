@@ -416,12 +416,16 @@ pub async fn handle(
                     .and_then(|t| t.as_str())
                     .map(|s| s.to_string())
             });
+            let context_defaults = crate::config::resolved_context()?.resolved;
             let final_team = team
                 .or(tpl.team.clone())
                 .or(data_team)
                 .or(data_team_id)
+                .or(context_defaults.defaults.team.clone())
                 .ok_or_else(|| {
-                    anyhow::anyhow!("--team is required (or use a template with a default team)")
+                    anyhow::anyhow!(
+                        "--team is required (or configure a default with `linear config set default-team TEAM`)"
+                    )
                 })?;
 
             // Build title with optional prefix from template
@@ -448,9 +452,15 @@ pub async fn handle(
             };
             let final_priority = priority.or(tpl.default_priority);
 
-            // Merge labels: template labels + CLI labels
-            let mut final_labels = tpl.default_labels.clone();
+            // Merge only explicit safe default labels + template labels + CLI labels.
+            // Required/inferred label groups are exposed by `linear context` for agents
+            // to classify or ask about; the CLI does not guess them.
+            let mut final_labels = context_defaults.defaults.labels.clone();
+            final_labels.extend(tpl.default_labels.clone());
             final_labels.extend(labels);
+            final_labels.sort();
+            final_labels.dedup();
+            let final_state = state.or(context_defaults.defaults.status.clone());
 
             create_issue(
                 &final_title,
@@ -458,7 +468,7 @@ pub async fn handle(
                 data_json,
                 final_description,
                 final_priority,
-                state,
+                final_state,
                 assignee,
                 final_labels,
                 due,

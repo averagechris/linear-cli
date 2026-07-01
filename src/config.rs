@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 #[cfg(unix)]
@@ -31,9 +31,271 @@ pub struct Config {
     pub current: Option<String>,
     #[serde(default)]
     pub workspaces: HashMap<String, Workspace>,
+    /// Non-secret user defaults and agent/project policy hints.
+    #[serde(default, skip_serializing_if = "LinearContextConfig::is_empty")]
+    pub context: LinearContextConfig,
     // Legacy field for backward compatibility
     #[serde(skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+pub struct LinearContextConfig {
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub version: u32,
+    #[serde(default, skip_serializing_if = "ContextDefaults::is_empty")]
+    pub defaults: ContextDefaults,
+    #[serde(default, skip_serializing_if = "IssueCreateContext::is_empty")]
+    pub issue_create: IssueCreateContext,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub label_groups: Vec<LabelGroupPolicy>,
+    #[serde(default, skip_serializing_if = "ContextCacheConfig::is_empty")]
+    pub cache: ContextCacheConfig,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agent_instructions: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+pub struct ContextDefaults {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub team: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// Explicit labels that are always safe to apply in this context. Do not use
+    /// this for inferred/category labels such as a domain taxonomy.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
+}
+
+impl ContextDefaults {
+    pub fn is_empty(&self) -> bool {
+        self.team.is_none() && self.status.is_none() && self.labels.is_empty()
+    }
+
+    fn merge(&self, override_defaults: &ContextDefaults) -> ContextDefaults {
+        ContextDefaults {
+            team: override_defaults.team.clone().or_else(|| self.team.clone()),
+            status: override_defaults
+                .status
+                .clone()
+                .or_else(|| self.status.clone()),
+            labels: if override_defaults.labels.is_empty() {
+                self.labels.clone()
+            } else {
+                override_defaults.labels.clone()
+            },
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FieldMode {
+    Off,
+    Default,
+    Infer,
+    Suggest,
+    Ask,
+    AskIfAmbiguous,
+    AskOrInfer,
+    AskOrLeaveUnset,
+    InferOrAsk,
+}
+
+impl Default for FieldMode {
+    fn default() -> Self {
+        Self::AskIfAmbiguous
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+pub struct FieldPolicy {
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub mode: FieldMode,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub required_when: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub discovery: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guidance: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guidance_ref: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+pub struct EstimationPolicy {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub values: Vec<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guidance: Option<String>,
+}
+
+impl EstimationPolicy {
+    pub fn is_empty(&self) -> bool {
+        self.scale.is_none() && self.values.is_empty() && self.guidance.is_none()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+pub struct IssueCreateContext {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_ambiguity: Option<String>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub fields: HashMap<String, FieldPolicy>,
+    #[serde(default, skip_serializing_if = "EstimationPolicy::is_empty")]
+    pub estimation: EstimationPolicy,
+}
+
+impl IssueCreateContext {
+    pub fn is_empty(&self) -> bool {
+        self.on_ambiguity.is_none() && self.fields.is_empty() && self.estimation.is_empty()
+    }
+
+    fn merge(&self, override_context: &IssueCreateContext) -> IssueCreateContext {
+        let mut fields = self.fields.clone();
+        for (key, policy) in &override_context.fields {
+            fields.insert(key.clone(), policy.clone());
+        }
+        IssueCreateContext {
+            on_ambiguity: override_context
+                .on_ambiguity
+                .clone()
+                .or_else(|| self.on_ambiguity.clone()),
+            fields,
+            estimation: if override_context.estimation.is_empty() {
+                self.estimation.clone()
+            } else {
+                override_context.estimation.clone()
+            },
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+pub struct LabelOption {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+pub struct LabelHint {
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub repos: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub keywords: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+pub struct LabelGroupPolicy {
+    pub key: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub linear_group: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cardinality: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub mode: FieldMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub discovery: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ask_prompt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guidance: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<LabelOption>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hints: Vec<LabelHint>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+pub struct ContextCacheConfig {
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub ttl: HashMap<String, String>,
+}
+
+impl ContextCacheConfig {
+    pub fn is_empty(&self) -> bool {
+        self.ttl.is_empty()
+    }
+}
+
+impl LinearContextConfig {
+    pub fn merge(&self, override_config: &LinearContextConfig) -> LinearContextConfig {
+        let mut label_groups = self.label_groups.clone();
+        for group in &override_config.label_groups {
+            if let Some(existing) = label_groups.iter_mut().find(|g| g.key == group.key) {
+                *existing = group.clone();
+            } else {
+                label_groups.push(group.clone());
+            }
+        }
+        let mut ttl = self.cache.ttl.clone();
+        ttl.extend(override_config.cache.ttl.clone());
+        LinearContextConfig {
+            version: if override_config.version == 0 {
+                self.version
+            } else {
+                override_config.version
+            },
+            defaults: self.defaults.merge(&override_config.defaults),
+            issue_create: self.issue_create.merge(&override_config.issue_create),
+            label_groups,
+            cache: ContextCacheConfig { ttl },
+            agent_instructions: {
+                let mut instructions = self.agent_instructions.clone();
+                instructions.extend(override_config.agent_instructions.clone());
+                instructions
+            },
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.version == 0
+            && self.defaults.is_empty()
+            && self.issue_create.is_empty()
+            && self.label_groups.is_empty()
+            && self.cache.is_empty()
+            && self.agent_instructions.is_empty()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct ProjectContextFile {
+    #[serde(default, skip_serializing_if = "LinearContextConfig::is_empty")]
+    pub context: LinearContextConfig,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+fn is_zero(value: &u32) -> bool {
+    *value == 0
+}
+
+fn is_default<T: Default + PartialEq>(value: &T) -> bool {
+    value == &T::default()
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedLinearContext {
+    pub user: LinearContextConfig,
+    pub project: Option<LinearContextConfig>,
+    pub project_file: Option<PathBuf>,
+    pub resolved: LinearContextConfig,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -287,6 +549,28 @@ pub fn config_get(key: &str) -> Result<()> {
             let profile = current_profile()?;
             println!("{}", profile);
         }
+        "default-team" | "default_team" | "team" | "context.team" => {
+            if let Some(team) = load_config()?.context.defaults.team {
+                println!("{}", team);
+            } else {
+                anyhow::bail!(
+                    "No default team configured. Run: linear config set default-team TEAM"
+                );
+            }
+        }
+        "default-status" | "default_status" | "status" | "context.status" => {
+            if let Some(status) = load_config()?.context.defaults.status {
+                println!("{}", status);
+            } else {
+                anyhow::bail!(
+                    "No default status configured. Run: linear config set default-status STATUS"
+                );
+            }
+        }
+        "default-labels" | "default_labels" | "labels" | "context.labels" => {
+            let labels = load_config()?.context.defaults.labels;
+            println!("{}", labels.join(","));
+        }
         _ => anyhow::bail!("Unknown config key: {}", key),
     }
     Ok(())
@@ -298,8 +582,41 @@ pub fn config_set(key: &str, value: &str) -> Result<()> {
             "Setting API keys via positional arguments is disabled. Use 'linear auth login' or 'linear config set-key'."
         ),
         "profile" => workspace_switch(value),
+        "default-team" | "default_team" | "team" | "context.team" => set_context_value(|context| {
+            context.version = context.version.max(1);
+            context.defaults.team = Some(value.trim().to_string());
+            Ok(())
+        }),
+        "default-status" | "default_status" | "status" | "context.status" => set_context_value(|context| {
+            context.version = context.version.max(1);
+            context.defaults.status = Some(value.trim().to_string());
+            Ok(())
+        }),
+        "default-labels" | "default_labels" | "labels" | "context.labels" => set_context_value(|context| {
+            context.version = context.version.max(1);
+            context.defaults.labels = parse_csv_values(value);
+            Ok(())
+        }),
         _ => anyhow::bail!("Unknown config key: {}", key),
     }
+}
+
+fn set_context_value<F>(update: F) -> Result<()>
+where
+    F: FnOnce(&mut LinearContextConfig) -> Result<()>,
+{
+    let mut config = load_config()?;
+    update(&mut config.context)?;
+    save_config(&config)
+}
+
+fn parse_csv_values(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(ToString::to_string)
+        .collect()
 }
 
 pub fn show_config() -> Result<()> {
@@ -319,6 +636,95 @@ pub fn show_config() -> Result<()> {
         println!("No workspace configured. Run: linear workspace add <name>");
     }
 
+    println!();
+    println!("Context defaults:");
+    println!(
+        "  Default team: {}",
+        config
+            .context
+            .defaults
+            .team
+            .as_deref()
+            .unwrap_or("not configured")
+    );
+    println!(
+        "  Default status: {}",
+        config
+            .context
+            .defaults
+            .status
+            .as_deref()
+            .unwrap_or("not configured")
+    );
+    println!(
+        "  Default labels: {}",
+        if config.context.defaults.labels.is_empty() {
+            "not configured".to_string()
+        } else {
+            config.context.defaults.labels.join(", ")
+        }
+    );
+    println!(
+        "  Label groups: {}",
+        if config.context.label_groups.is_empty() {
+            "not configured".to_string()
+        } else {
+            config
+                .context
+                .label_groups
+                .iter()
+                .map(|group| group.key.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        }
+    );
+
+    Ok(())
+}
+
+pub fn resolved_context() -> Result<ResolvedLinearContext> {
+    let user = load_config()?.context;
+    let (project, project_file) = load_project_context()?;
+    let resolved = match &project {
+        Some(project) => user.merge(project),
+        None => user.clone(),
+    };
+
+    Ok(ResolvedLinearContext {
+        user,
+        project,
+        project_file,
+        resolved,
+    })
+}
+
+pub fn load_project_context() -> Result<(Option<LinearContextConfig>, Option<PathBuf>)> {
+    let Some(path) = find_project_context_file()? else {
+        return Ok((None, None));
+    };
+    let content = fs::read_to_string(&path)?;
+    let project_file: ProjectContextFile = toml::from_str(&content)?;
+    Ok((Some(project_file.context), Some(path)))
+}
+
+fn find_project_context_file() -> Result<Option<PathBuf>> {
+    let mut current = std::env::current_dir()?;
+    loop {
+        let candidate = current.join(".linear.toml");
+        if candidate.exists() {
+            return Ok(Some(candidate));
+        }
+        if !current.pop() {
+            return Ok(None);
+        }
+    }
+}
+
+pub fn write_project_context(path: &Path, context: &LinearContextConfig) -> Result<()> {
+    let file = ProjectContextFile {
+        context: context.clone(),
+    };
+    fs::write(path, toml::to_string_pretty(&file)?)?;
     Ok(())
 }
 
@@ -617,10 +1023,73 @@ mod tests {
     }
 
     #[test]
+    fn test_context_defaults_parse() {
+        let toml_str = r#"
+            current = "default"
+
+            [context.defaults]
+            team = "EPD"
+            status = "Spec"
+            labels = ["agentic"]
+
+            [[context.label_groups]]
+            key = "domain"
+            linear_group = "domain"
+            required = true
+            cardinality = "exactly_one"
+        "#;
+
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.context.defaults.team.as_deref(), Some("EPD"));
+        assert_eq!(config.context.defaults.status.as_deref(), Some("Spec"));
+        assert_eq!(config.context.defaults.labels, vec!["agentic"]);
+        assert_eq!(config.context.label_groups.len(), 1);
+        assert_eq!(config.context.label_groups[0].key, "domain");
+        assert!(config.context.label_groups[0].required);
+    }
+
+    #[test]
+    fn test_context_merge_project_overrides_user() {
+        let user = LinearContextConfig {
+            defaults: ContextDefaults {
+                team: Some("EPD".to_string()),
+                status: Some("Triage".to_string()),
+                labels: vec!["user".to_string()],
+            },
+            label_groups: vec![LabelGroupPolicy {
+                key: "domain".to_string(),
+                required: true,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let project = LinearContextConfig {
+            defaults: ContextDefaults {
+                team: None,
+                status: Some("Spec".to_string()),
+                labels: vec!["repo".to_string()],
+            },
+            label_groups: vec![LabelGroupPolicy {
+                key: "type".to_string(),
+                required: true,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let merged = user.merge(&project);
+        assert_eq!(merged.defaults.team.as_deref(), Some("EPD"));
+        assert_eq!(merged.defaults.status.as_deref(), Some("Spec"));
+        assert_eq!(merged.defaults.labels, vec!["repo"]);
+        assert_eq!(merged.label_groups.len(), 2);
+    }
+
+    #[test]
     fn test_config_api_key_not_serialized_when_none() {
         let config = Config {
             current: Some("default".to_string()),
             workspaces: HashMap::new(),
+            context: LinearContextConfig::default(),
             api_key: None,
         };
 

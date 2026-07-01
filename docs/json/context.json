@@ -10,5 +10,91 @@
     "assignee": { "name": "Ada Lovelace" },
     "priority": 2,
     "url": "https://linear.app/team/issue/LIN-123"
-  }
+  },
+  "profile": "default",
+  "contextVersion": 1,
+  "sources": {
+    "user_configured": true,
+    "project_configured": true,
+    "project_file": "/repo/.linear.toml"
+  },
+  "defaults": {
+    "team": "EPD",
+    "status": "Spec",
+    "labels": []
+  },
+  "issueCreate": {
+    "onAmbiguity": "ask",
+    "fields": {
+      "project": {
+        "mode": "infer_or_ask",
+        "discovery": "projects",
+        "guidance": "Use projects for time-bound efforts. Do not invent projects; fetch options and ask when ambiguous."
+      },
+      "initiative": {
+        "mode": "infer_or_ask",
+        "discovery": "initiatives",
+        "guidance": "Use initiatives only when strategically relevant or explicitly implied. Do not guess."
+      },
+      "estimate": {
+        "mode": "ask_or_infer",
+        "required_when": "before_cycle",
+        "guidance_ref": "issue_create.estimation"
+      }
+    },
+    "estimation": {
+      "scale": "fibonacci",
+      "values": [0, 1, 2, 3, 5, 8],
+      "guidance": "Use relative complexity, not hours. Ask when uncertain."
+    },
+    "labelGroups": [
+      {
+        "key": "domain",
+        "linearGroup": "domain",
+        "required": true,
+        "cardinality": "exactly_one",
+        "mode": "infer_or_ask",
+        "discovery": {
+          "command": "linear context options labels --group domain --output json --compact",
+          "cacheKey": "labels.domain",
+          "presentationMax": 12,
+          "multiSelect": false,
+          "includeNone": false,
+          "prompt": "Which domain label best matches this work?"
+        }
+      },
+      {
+        "key": "type",
+        "linearGroup": "type",
+        "required": true,
+        "cardinality": "exactly_one",
+        "mode": "infer_or_ask",
+        "discovery": {
+          "command": "linear context options labels --group type --output json --compact",
+          "cacheKey": "labels.type",
+          "presentationMax": 12,
+          "multiSelect": false,
+          "includeNone": false,
+          "prompt": "Which type label best matches this work?"
+        }
+      }
+    ]
+  },
+  "cache": {
+    "ttl": { "labels": "7d", "projects": "6h", "initiatives": "24h" }
+  },
+  "configured": true,
+  "completeness": {
+    "hasDefaultTeam": true,
+    "hasDefaultStatus": true,
+    "hasLabelPolicy": true,
+    "hasIssueCreationPolicy": true
+  },
+  "hints": [],
+  "agentInstructions": [
+    "Default to team EPD when creating issues unless the user specifies another team.",
+    "Default new issues to status Spec unless the user specifies another status.",
+    "Issue creation requires exactly_one label group 'domain' (Which domain label best matches this work?); infer only when clear, otherwise fetch options and ask the user.",
+    "Issue creation requires exactly_one label group 'type' (Which type label best matches this work?); infer only when clear, otherwise fetch options and ask the user."
+  ]
 }

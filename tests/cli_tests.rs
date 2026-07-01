@@ -428,6 +428,11 @@ fn test_context_help() {
     let (code, stdout, _stderr) = run_cli(&["context", "--help"]);
     assert_eq!(code, 0);
     assert!(stdout.contains("context") || stdout.contains("issue") || stdout.contains("branch"));
+    assert!(stdout.contains("init"));
+    assert!(stdout.contains("suggest"));
+    assert!(stdout.contains("options"));
+    assert!(stdout.contains("refresh"));
+    assert!(stdout.contains("cache-status"));
 }
 
 // --- Alias tests for commands without coverage ---
