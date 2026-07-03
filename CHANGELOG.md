@@ -4,6 +4,13 @@
 
 
 
+
+## v1.6.1 - 2026-07-03
+
+### Fixed
+
+- Repair Linear schema drift in planning surfaces.
+
 ## v1.6.0 - 2026-07-03
 
 ### Added

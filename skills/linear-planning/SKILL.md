@@ -20,11 +20,9 @@ linear context options initiatives --output json --compact
 
 ```bash
 linear p list                                       # projects (get/create/update/members/archive)
-linear p update ID --status Done -l platform        # project status + project labels (add/remove/set-labels too)
-linear pu create PROJECT_ID -b "On track" -H onTrack # project updates (list/get/archive)
+linear pu create PROJECT_ID -b "On track"           # project updates (list/get/archive)
 linear ms list -p PROJECT_ID                        # milestones (create/update/delete)
-linear init list                                    # initiatives (get/create/update; --target-date/--owner)
-linear iu create INITIATIVE_ID -b "On track" -H onTrack # initiative updates (list/get/archive)
+linear init list                                    # initiatives (get/create/update)
 linear rm list                                      # roadmaps (get/create/update)
 linear c current -t ENG --output json --compact     # cycles (list/create/complete)
 linear sp status -t ENG                             # sprint (progress/plan/velocity/carry-over)
