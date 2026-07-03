@@ -3,6 +3,25 @@
 ## Unreleased
 
 
+
+## v1.6.0 - 2026-07-03
+
+### Added
+
+- Add configurable workflow-hygiene rule engine and commands.
+
+### Changed
+
+- Dual-license crate.
+
+### Fixed
+
+- Fix live-trial bugs in fetch complexity, display, and priority semantics.
+
+### Documentation
+
+- Add design doc for the hygiene rule engine.
+
 ## v1.5.1 - 2026-07-01
 
 ### Changed
