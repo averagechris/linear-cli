@@ -29,10 +29,10 @@ dist/downloads/linear-cli-v1.2.8-aarch64-darwin.tar.gz.sha256
 
 The SourceHut build manifest builds the Linux artifact, fetches existing hosted downloads from the current Pages manifest, regenerates the downloads page, and publishes it with `hut pages publish`. It uses build-scoped OAuth (`pages.sr.ht/PAGES:RW`) rather than a checked-in token.
 
-Submit the release build after updating `.builds/release-linux-x86_64.yml` for the new version, or let the git.sr.ht integration run it after pushing `main`:
+Submit the release build after updating `builds/release-linux-x86_64.yml` for the new version. The manifest lives in `builds/` (not `.builds/`), so SourceHut does not auto-submit it on push; it only runs on an explicit `hut builds submit` (e.g. via `nix run .#release -- --submit-linux-build`):
 
 ```bash
-hut builds submit .builds/release-linux-x86_64.yml \
+hut builds submit builds/release-linux-x86_64.yml \
   --note "linear-cli v1.2.8 linux release" \
   --tags "linear-cli/v1.2.8/release" \
   --visibility unlisted

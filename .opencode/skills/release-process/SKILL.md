@@ -16,7 +16,7 @@ For the normal deterministic release flow, create/use the jj release change and 
 nix run .#release -- --version X.Y.Z
 ```
 
-This prepares `Cargo.toml`, `CHANGELOG.md`, and `.builds/release-linux-x86_64.yml`, runs validation, tags/pushes `vX.Y.Z`, builds the local `.#release-artifact`, copies it into `dist/downloads/`, and builds `dist/pages/linear-cli-pages.tar.gz` for SourceHut Pages.
+This prepares `Cargo.toml`, `CHANGELOG.md`, and `builds/release-linux-x86_64.yml`, runs validation, tags/pushes `vX.Y.Z`, builds the local `.#release-artifact`, copies it into `dist/downloads/`, and builds `dist/pages/linear-cli-pages.tar.gz` for SourceHut Pages.
 
 Optional flags:
 
@@ -26,7 +26,9 @@ nix run .#release -- --version X.Y.Z --submit-linux-build
 ```
 
 - `--publish-pages` runs `hut pages publish` for `averagechris.srht.site` under `/linear-cli`.
-- `--submit-linux-build` submits `.builds/release-linux-x86_64.yml`; the build creates the Linux artifact, merges it with existing hosted downloads, and republishes SourceHut Pages using build-scoped `pages.sr.ht/PAGES:RW` OAuth.
+- `--submit-linux-build` submits `builds/release-linux-x86_64.yml`; the build creates the Linux artifact, merges it with existing hosted downloads, and republishes SourceHut Pages using build-scoped `pages.sr.ht/PAGES:RW` OAuth.
+
+The Linux build manifest lives in `builds/` (not `.builds/`), so SourceHut does **not** auto-submit it on every push and pages are no longer republished on each push to `main`. Releases publish pages explicitly via `--publish-pages` and/or `--submit-linux-build`.
 
 Use the manual steps below when you need more control or are recovering from a partial release.
 
@@ -137,10 +139,10 @@ mkdir -p dist/downloads
 cp -p result-release-artifact/* dist/downloads/
 ```
 
-For Linux, submit a SourceHut build after `.builds/release-linux-x86_64.yml` has the release version:
+For Linux, submit a SourceHut build after `builds/release-linux-x86_64.yml` has the release version:
 
 ```bash
-hut builds submit .builds/release-linux-x86_64.yml \
+hut builds submit builds/release-linux-x86_64.yml \
   --note 'linear-cli vX.Y.Z linux release' \
   --tags 'linear-cli/vX.Y.Z/release' \
   --visibility unlisted
