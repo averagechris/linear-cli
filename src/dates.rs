@@ -1,5 +1,25 @@
 use chrono::{Datelike, Duration, Local, NaiveDate};
 
+/// Parse a duration string into seconds.
+///
+/// Supports the shared CLI duration syntax: `45s`, `90m`, `6h`, `7d`, `2w`.
+/// A bare number is interpreted as seconds. Returns `None` for anything else.
+pub fn parse_duration_seconds(input: &str) -> Option<u64> {
+    let input = input.trim();
+    if input.is_empty() {
+        return None;
+    }
+    let (number, multiplier) = match input.chars().last()? {
+        'w' | 'W' => (&input[..input.len() - 1], 7 * 24 * 60 * 60),
+        'd' | 'D' => (&input[..input.len() - 1], 24 * 60 * 60),
+        'h' | 'H' => (&input[..input.len() - 1], 60 * 60),
+        'm' | 'M' => (&input[..input.len() - 1], 60),
+        's' | 'S' => (&input[..input.len() - 1], 1),
+        _ => (input, 1),
+    };
+    number.trim().parse::<u64>().ok().map(|n| n * multiplier)
+}
+
 /// Parse due date shorthand into an ISO date string (YYYY-MM-DD)
 ///
 /// Supports:
@@ -238,5 +258,24 @@ mod tests {
         let today = Local::now().date_naive().format("%Y-%m-%d").to_string();
         assert_eq!(parse_due_date("TODAY"), Some(today.clone()));
         assert_eq!(parse_due_date("Today"), Some(today));
+    }
+
+    #[test]
+    fn test_parse_duration_seconds_suffixes() {
+        assert_eq!(parse_duration_seconds("2w"), Some(2 * 7 * 24 * 60 * 60));
+        assert_eq!(parse_duration_seconds("7d"), Some(7 * 24 * 60 * 60));
+        assert_eq!(parse_duration_seconds("6h"), Some(6 * 60 * 60));
+        assert_eq!(parse_duration_seconds("90m"), Some(90 * 60));
+        assert_eq!(parse_duration_seconds("45s"), Some(45));
+        assert_eq!(parse_duration_seconds("90"), Some(90));
+        assert_eq!(parse_duration_seconds(" 15m "), Some(15 * 60));
+    }
+
+    #[test]
+    fn test_parse_duration_seconds_invalid() {
+        assert_eq!(parse_duration_seconds(""), None);
+        assert_eq!(parse_duration_seconds("abc"), None);
+        assert_eq!(parse_duration_seconds("-5m"), None);
+        assert_eq!(parse_duration_seconds("m"), None);
     }
 }

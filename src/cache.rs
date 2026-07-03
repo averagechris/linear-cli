@@ -403,6 +403,33 @@ pub fn cache_dir_path() -> Result<PathBuf> {
     Cache::cache_dir()
 }
 
+/// Profile- and auth-scoped state directory for hygiene run artifacts and
+/// snoozes: `…/linear-cli/state/<profile>/<identity>`. Mirrors the cache dir
+/// scoping (see [`Cache::cache_dir`]) so two workspaces sharing a profile never
+/// read each other's state. Falls back to `…/state/<profile>` when no API key
+/// can be resolved.
+pub(crate) fn hygiene_state_dir() -> Result<PathBuf> {
+    static STATE_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+    if let Some(cached) = STATE_DIR.get() {
+        return Ok(cached.clone());
+    }
+
+    let profile = config::current_profile().unwrap_or_else(|_| "default".to_string());
+    let base = dirs::config_dir().context("Could not find config directory")?;
+    let identity = config::get_api_key()
+        .ok()
+        .map(|key| cache_identity_from_key(&key));
+
+    let mut dir = base.join("linear-cli").join("state").join(profile);
+    if let Some(id) = identity {
+        dir = dir.join(id);
+    }
+
+    let _ = STATE_DIR.set(dir.clone());
+    Ok(dir)
+}
+
 /// Compute a short, stable cache identity from an API key.
 ///
 /// Returns the first 8 hex characters of `sha256(api_key)`. The raw key never

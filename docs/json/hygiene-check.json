@@ -1,0 +1,137 @@
+[
+  {
+    "dedupeKey": "initiative-stale-health:fake-initiative",
+    "entity": {
+      "id": "dddd4444-0000-4000-8000-00000000000e",
+      "identifier": "fake-initiative",
+      "title": "Fake Initiative",
+      "type": "initiative",
+      "url": "https://linear.app/testorg/initiative/fake-initiative"
+    },
+    "evidence": {
+      "ageDays": 2374,
+      "healthUpdatedAt": "2020-01-01T09:00:00Z",
+      "state": "Active",
+      "threshold": "14d",
+      "updatedAt": "2026-06-01T09:00:00Z"
+    },
+    "fix": null,
+    "owner": {
+      "displayName": "test.user",
+      "id": "8f9d2c1e-4b3a-4f6e-9c8d-1a2b3c4d5e6f",
+      "name": "Test User"
+    },
+    "rule": "initiative-stale-health",
+    "severity": "high",
+    "summary": "fake-initiative healthUpdatedAt 2374d old (threshold 14d), state='Active'"
+  },
+  {
+    "dedupeKey": "stale-in-review:FAKE-2",
+    "entity": {
+      "id": "aaaa1111-0000-4000-8000-000000000002",
+      "identifier": "FAKE-2",
+      "title": "Refactor payments retries",
+      "type": "issue",
+      "url": "https://linear.app/testorg/issue/FAKE-2/refactor-payments-retries"
+    },
+    "evidence": {
+      "ageDays": 2370,
+      "status": "In Review",
+      "threshold": "2d",
+      "updatedAt": "2020-01-05T09:00:00Z"
+    },
+    "fix": {
+      "kind": "options",
+      "options": [
+        {
+          "action": "nudge_review",
+          "command": "linear cm create FAKE-2 -b \"<comment>\"",
+          "needsInput": true
+        },
+        {
+          "action": "move_back",
+          "command": "linear i update FAKE-2 -s \"In Progress\""
+        }
+      ]
+    },
+    "owner": {
+      "displayName": "test.user",
+      "id": "8f9d2c1e-4b3a-4f6e-9c8d-1a2b3c4d5e6f",
+      "name": "Test User"
+    },
+    "rule": "stale-in-review",
+    "severity": "high",
+    "summary": "FAKE-2 status='In Review', updatedAt 2370d old (threshold 2d)"
+  },
+  {
+    "dedupeKey": "urgent-in-backlog:FAKE-1",
+    "entity": {
+      "id": "aaaa1111-0000-4000-8000-000000000001",
+      "identifier": "FAKE-1",
+      "title": "Urgent login outage",
+      "type": "issue",
+      "url": "https://linear.app/testorg/issue/FAKE-1/urgent-login-outage"
+    },
+    "evidence": {
+      "priority": 1.0,
+      "status": "Backlog",
+      "updatedAt": "2026-01-01T09:00:00Z"
+    },
+    "fix": {
+      "command": "linear i update FAKE-1 -s Todo",
+      "kind": "command"
+    },
+    "owner": {
+      "displayName": "test.user",
+      "id": "8f9d2c1e-4b3a-4f6e-9c8d-1a2b3c4d5e6f",
+      "name": "Test User"
+    },
+    "rule": "urgent-in-backlog",
+    "severity": "high",
+    "summary": "FAKE-1 priority=1 (eq 1), status='Backlog'"
+  },
+  {
+    "dedupeKey": "needs-update:FAKE-3",
+    "entity": {
+      "id": "aaaa1111-0000-4000-8000-000000000003",
+      "identifier": "FAKE-3",
+      "title": "Untended in-progress work",
+      "type": "issue",
+      "url": "https://linear.app/testorg/issue/FAKE-3/untended-in-progress-work"
+    },
+    "evidence": {
+      "ageDays": 2370,
+      "status": "In Progress",
+      "threshold": "2d",
+      "updatedAt": "2020-01-05T09:00:00Z"
+    },
+    "fix": {
+      "command": "linear cm create FAKE-3 -b \"<comment>\"",
+      "kind": "needs_input"
+    },
+    "owner": null,
+    "rule": "needs-update",
+    "severity": "medium",
+    "summary": "FAKE-3 status='In Progress', updatedAt 2370d old (threshold 2d)"
+  },
+  {
+    "dedupeKey": "project-no-lead:fake-project",
+    "entity": {
+      "id": "cccc3333-0000-4000-8000-00000000000d",
+      "identifier": "fake-project",
+      "title": "Fake Project",
+      "type": "project",
+      "url": "https://linear.app/testorg/project/fake-project"
+    },
+    "evidence": {
+      "lead": null,
+      "state": "started",
+      "updatedAt": "2026-06-01T09:00:00Z"
+    },
+    "fix": null,
+    "owner": null,
+    "rule": "project-no-lead",
+    "severity": "medium",
+    "summary": "fake-project lead missing, state='started'"
+  }
+]

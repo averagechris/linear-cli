@@ -24,6 +24,7 @@ mod commands;
 mod config;
 mod dates;
 mod error;
+mod hygiene;
 mod input;
 mod json_path;
 mod keyring;
@@ -43,9 +44,9 @@ use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
 use commands::{
     attachments, auth, bulk, comments, context, cycles, doctor, documents, export, favorites, git,
-    history, import, initiatives, interactive, issues, labels, metrics, notifications,
-    project_updates, projects, relations, roadmaps, search, sprint, statuses, sync, teams,
-    templates, time, triage, update, uploads, users, views, watch, webhooks,
+    history, hygiene as hygiene_cmd, import, initiatives, interactive, issues, labels, metrics,
+    notifications, project_updates, projects, relations, roadmaps, search, sprint, statuses, sync,
+    teams, templates, time, triage, update, uploads, users, views, watch, webhooks,
 };
 use error::CliError;
 use output::print_json_owned;
@@ -668,6 +669,29 @@ on targeted errors, not on unrelated successful commands."#)]
         #[command(subcommand)]
         action: history::HistoryCommands,
     },
+    /// Workflow hygiene - detect and fix stale or malformed work items
+    #[command(alias = "hy")]
+    #[command(after_help = r#"EXAMPLES:
+    linear hygiene check                    # Findings for the default scope
+    linear hy check -t ENG --output json    # Agent-readable findings
+    linear hy rules --init                  # Write a starter hygiene.toml
+    linear hy fix --dry-run                 # Preview bulk remediation
+    linear hy apply RULE:LIN-123 --option move_back
+    linear hy snooze RULE:LIN-123 --for 2w  # Suppress a finding locally
+
+Rules live in the user-level hygiene.toml; see docs/hygiene.md. Load an
+alternate rules file with --rules PATH or LINEAR_CLI_HYGIENE_RULES."#)]
+    Hygiene {
+        /// Load hygiene rules from PATH instead of the user-level
+        /// hygiene.toml (env fallback: LINEAR_CLI_HYGIENE_RULES)
+        // Field named `rules_file` so the clap arg id does not collide with
+        // the repeatable `--rule` (id `rules`) on the hygiene subcommands,
+        // which would break global-arg propagation.
+        #[arg(long = "rules", global = true, value_name = "PATH")]
+        rules_file: Option<std::path::PathBuf>,
+        #[command(subcommand)]
+        action: hygiene_cmd::HygieneCommands,
+    },
     /// Manage custom views - create, apply, and manage saved views
     #[command(alias = "v")]
     #[command(after_help = r#"EXAMPLES:
@@ -1047,7 +1071,9 @@ async fn async_main() -> Result<i32> {
     );
     set_yes_mode(cli.yes);
 
-    if cli.schema {
+    // `hygiene rules --schema` reuses the global flag to print the hygiene
+    // field-model schema (R22) instead of the CLI schema version stub.
+    if cli.schema && !matches!(cli.command, Commands::Hygiene { .. }) {
         let schema = serde_json::json!({
             "schema_version": "1.0",
             "schema_file": "docs/json/schema.json",
@@ -1068,7 +1094,7 @@ async fn async_main() -> Result<i32> {
             None
         };
 
-        let result = run_command(cli.command, &output, agent_opts, cli.retry).await;
+        let result = run_command(cli.command, &output, agent_opts, cli.retry, cli.schema).await;
 
         match result {
             Ok(()) => 0,
@@ -1136,6 +1162,7 @@ async fn run_command(
     output: &OutputOptions,
     agent_opts: AgentOptions,
     retry: u32,
+    schema_flag: bool,
 ) -> Result<()> {
     match command {
         Commands::Common => {
@@ -1152,6 +1179,7 @@ async fn run_command(
             println!("  linear context                       # Resolved defaults + branch issue");
             println!("  linear g pr LIN-123 --draft          # Linked GitHub PR");
             println!("  linear s issues \"query\"              # Search issues");
+            println!("  linear hy check                      # Workflow-hygiene findings");
             println!("  linear watch comments --mine --output ndjson");
             println!("  linear completions static zsh > ~/.zfunc/_linear");
             println!();
@@ -1171,6 +1199,11 @@ async fn run_command(
             println!("  Quiet: --quiet --no-color for logs/CI");
             println!("  Empty lists: --fail-on-empty when absence should fail");
             println!("  Exit codes: 0 ok, 1 error, 2 not found, 3 auth, 4 rate limited");
+            println!("  Hygiene: `linear hygiene check --output json` -> reason over findings ->");
+            println!("           `linear hygiene fix --yes` (deterministic fixes only) ->");
+            println!("           `linear hygiene apply KEY --option ACTION | --input \"text\"`");
+            println!("           rules live in hygiene.toml; scaffold via `hygiene rules --init`,");
+            println!("           discover the field model via `hygiene rules --schema`");
             println!();
             println!("Examples:");
             println!(
@@ -1178,6 +1211,7 @@ async fn run_command(
             );
             println!("  linear cm list LIN-123 --output json --compact");
             println!("  linear i update LIN-123 --data - --dry-run");
+            println!("  linear hy check -t ENG --output json --compact");
             println!("  linear watch comments --mine --output ndjson");
             println!("  linear up fetch URL -f /tmp/upload.png");
             println!();
@@ -1219,6 +1253,9 @@ async fn run_command(
         Commands::Export { action } => export::handle(action, output).await?,
         Commands::Import { action } => import::handle(action, output).await?,
         Commands::History { action } => history::handle(action, output).await?,
+        Commands::Hygiene { rules_file, action } => {
+            hygiene_cmd::handle(action, rules_file, output, agent_opts, schema_flag).await?
+        }
         Commands::Views { action } => views::handle(action, output).await?,
         Commands::Webhooks { action } => webhooks::handle(action, output).await?,
         Commands::Watch { action } => match action {

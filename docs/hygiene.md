@@ -1,6 +1,7 @@
 # Hygiene: Design Document
 
-Status: **draft — awaiting review, not yet implemented**
+Status: **implemented** (core engine in `src/hygiene/`, commands in
+`src/commands/hygiene.rs`; e2e coverage in `tests/mock_api_tests.rs`)
 
 `linear hygiene` (alias `hy`) is a standalone, configurable rule engine that
 detects workflow-hygiene problems across Linear issues, projects, and
@@ -439,6 +440,33 @@ content always arrive via explicit per-finding `apply` flags.
 - OQ2. Should `report` support NDJSON grouping output or JSON only? (Current
   answer: JSON object keyed by group.)
 - OQ3. Does the initiative API expose enough for `healthUpdatedAt` cheaply,
-  or do we need the updates connection per initiative? Needs a schema check
-  during implementation; fall back to omitting the field (config error if
-  referenced) rather than N+1 queries.
+  or do we need the updates connection per initiative? (Resolved during
+  implementation: `Initiative.health` and `Initiative.healthUpdatedAt` exist
+  as scalar fields, so the check query fetches them directly with no N+1.)
+
+## 6. Implementation notes
+
+- `--rules PATH` (global across all hygiene subcommands) or the
+  `LINEAR_CLI_HYGIENE_RULES` env var load rules from an alternate file
+  (precedence: flag > env var > default user-level path). An override path
+  that is missing or fails to parse is an error naming the path — unlike the
+  default path, where a missing file means "no rules" (R8). The repo
+  `.linear.toml` `[hygiene]` scope override still applies regardless of the
+  rules source, and `rules --init --rules PATH` writes the starter to PATH.
+- The org-wide scope flag reuses the global `--all` (which also means "fetch
+  all pages"); hygiene always paginates fully, so the two meanings coincide.
+- Server-side filtering (R13) pushes the *scope* axes (team, assignee/lead/
+  owner, project, initiative) into GraphQL filters; per-rule predicate
+  conditions (`updatedAt`, `state`, …) evaluate client-side because one fetch
+  serves many rules. Results are identical either way.
+- `hygiene rules --schema` reuses the global `--schema` flag.
+- Auto-derived fix candidates cover `priority` (1–4), `estimate` (from the
+  context estimation policy), and label groups. Workflow-status candidates are
+  intentionally omitted: `status` is non-nullable in the field model, so
+  `missing`-based fixes (the only consumer of candidates) can never reference
+  it, and a multi-team scope would otherwise need per-team candidate sets.
+- Applying a label fix merges with the issue's existing labels via the API
+  (`linear i update -l` alone would replace the label set).
+- `report --by team` groups issues by their identifier prefix (`ENG-123` →
+  `ENG`); projects and initiatives group under `-` since findings do not
+  carry a team reference.

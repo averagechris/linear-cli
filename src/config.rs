@@ -342,12 +342,18 @@ pub fn profile_override_name() -> Option<String> {
 }
 
 fn config_path() -> Result<PathBuf> {
+    Ok(linear_config_dir()?.join("config.toml"))
+}
+
+/// The user-level linear-cli config directory (created if missing).
+/// Shared by `config.toml`, `templates.json`, and `hygiene.toml`.
+pub fn linear_config_dir() -> Result<PathBuf> {
     let config_dir = dirs::config_dir()
         .context("Could not find config directory")?
         .join("linear-cli");
 
     fs::create_dir_all(&config_dir)?;
-    Ok(config_dir.join("config.toml"))
+    Ok(config_dir)
 }
 
 pub fn load_config() -> Result<Config> {
@@ -726,6 +732,12 @@ fn find_project_context_file() -> Result<Option<PathBuf>> {
             return Ok(None);
         }
     }
+}
+
+/// Locate the nearest `.linear.toml` walking up from the current directory.
+/// Exposed for consumers (e.g. hygiene) that read additional tables from it.
+pub fn project_context_file_path() -> Result<Option<PathBuf>> {
+    find_project_context_file()
 }
 
 pub fn write_project_context(path: &Path, context: &LinearContextConfig) -> Result<()> {

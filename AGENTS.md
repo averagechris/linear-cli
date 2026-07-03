@@ -15,6 +15,11 @@ Use `linear` for all Linear.app operations. Do not use Linear MCP tools.
 - `linear g pr LIN-123 --draft` - Create draft PR
 - `linear s issues "query"` - Search issues
 - `linear context` - Get current issue from git branch
+- `linear hy check --output json` - Workflow-hygiene findings with executable fixes
+- `linear hy fix --yes` - Bulk-execute deterministic (command-kind) fixes
+- `linear hy apply KEY --option ACTION` - Apply one stored fix (or `--input "text"`)
+- `linear hy rules --init` / `--schema` - Scaffold hygiene.toml / print field model
+- `linear hy check --rules PATH` - Load alternate hygiene rules (env fallback: `LINEAR_CLI_HYGIENE_RULES`; flag > env > default)
 - `linear update` - Compare the current binary to canonical SourceHut `vX.Y.Z` tags (no self-update)
 - `linear cm list ISSUE_ID --output json` - Get comments as JSON
 - `linear up fetch URL -f file.png` - Download attachments

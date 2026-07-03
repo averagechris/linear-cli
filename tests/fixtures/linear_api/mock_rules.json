@@ -1,5 +1,5 @@
 {
-  "comment": "Realistic Linear GraphQL request/response pairs served by tests/mock_api_tests.rs. Each rule matches when ALL `match` substrings appear in the request body; `operation` mirrors the GraphQL document the CLI sends (kept verbatim-equivalent so scripts/check_api_fixtures.py can validate it against the live schema). Only include read-only operations or operations with required variables so the online check never mutates real data.",
+  "comment": "Realistic Linear GraphQL request/response pairs served by tests/mock_api_tests.rs. Each rule matches when ALL `match` (operation-text) and `match_variables` (request-variables) substrings appear in the request body; `operation` mirrors the GraphQL document the CLI sends (kept verbatim-equivalent so scripts/check_api_fixtures.py can validate it against the live schema). Only include read-only operations or operations with required variables so the online check never mutates real data.",
   "rules": [
     {
       "name": "viewer",
@@ -107,6 +107,193 @@
             }
           }
         }
+      }
+    },
+    {
+      "name": "hygiene_issues",
+      "match": ["issues(first: $first, after: $after, filter: $filter, includeArchived: $includeArchived)"],
+      "operation": "query($filter: IssueFilter, $first: Int, $after: String, $includeArchived: Boolean) { issues(first: $first, after: $after, filter: $filter, includeArchived: $includeArchived) { nodes { id identifier title description url priority estimate dueDate createdAt updatedAt state { name } assignee { id name displayName } team { key } project { name } cycle { name number } labels { nodes { name } } } pageInfo { hasNextPage endCursor } } }",
+      "response": {
+        "data": {
+          "issues": {
+            "nodes": [
+              {
+                "id": "aaaa1111-0000-4000-8000-000000000001",
+                "identifier": "FAKE-1",
+                "title": "Urgent login outage",
+                "description": "Users cannot log in.",
+                "url": "https://linear.app/testorg/issue/FAKE-1/urgent-login-outage",
+                "priority": 1,
+                "estimate": null,
+                "dueDate": null,
+                "createdAt": "2025-12-01T09:00:00.000Z",
+                "updatedAt": "2026-01-01T09:00:00.000Z",
+                "state": { "name": "Backlog" },
+                "assignee": { "id": "8f9d2c1e-4b3a-4f6e-9c8d-1a2b3c4d5e6f", "name": "Test User", "displayName": "test.user" },
+                "team": { "key": "FAKE" },
+                "project": null,
+                "cycle": null,
+                "labels": { "nodes": [ { "name": "bug" } ] }
+              },
+              {
+                "id": "aaaa1111-0000-4000-8000-000000000002",
+                "identifier": "FAKE-2",
+                "title": "Refactor payments retries",
+                "description": "Long-lived review.",
+                "url": "https://linear.app/testorg/issue/FAKE-2/refactor-payments-retries",
+                "priority": 2,
+                "estimate": 3,
+                "dueDate": null,
+                "createdAt": "2025-11-01T09:00:00.000Z",
+                "updatedAt": "2020-01-05T09:00:00.000Z",
+                "state": { "name": "In Review" },
+                "assignee": { "id": "8f9d2c1e-4b3a-4f6e-9c8d-1a2b3c4d5e6f", "name": "Test User", "displayName": "test.user" },
+                "team": { "key": "FAKE" },
+                "project": { "name": "Fake Project" },
+                "cycle": null,
+                "labels": { "nodes": [] }
+              },
+              {
+                "id": "aaaa1111-0000-4000-8000-000000000003",
+                "identifier": "FAKE-3",
+                "title": "Untended in-progress work",
+                "description": null,
+                "url": "https://linear.app/testorg/issue/FAKE-3/untended-in-progress-work",
+                "priority": 3,
+                "estimate": null,
+                "dueDate": null,
+                "createdAt": "2025-10-01T09:00:00.000Z",
+                "updatedAt": "2020-01-05T09:00:00.000Z",
+                "state": { "name": "In Progress" },
+                "assignee": null,
+                "team": { "key": "FAKE" },
+                "project": null,
+                "cycle": null,
+                "labels": { "nodes": [] }
+              }
+            ],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+          }
+        }
+      }
+    },
+    {
+      "name": "hygiene_projects",
+      "match": ["projects(first: $first, after: $after, filter: $filter, includeArchived: $includeArchived)"],
+      "operation": "query($filter: ProjectFilter, $first: Int, $after: String, $includeArchived: Boolean) { projects(first: $first, after: $after, filter: $filter, includeArchived: $includeArchived) { nodes { id name slugId url description state createdAt updatedAt startDate targetDate health healthUpdatedAt lead { id name displayName } labels { nodes { name } } initiatives { nodes { name } } } pageInfo { hasNextPage endCursor } } }",
+      "response": {
+        "data": {
+          "projects": {
+            "nodes": [
+              {
+                "id": "cccc3333-0000-4000-8000-00000000000d",
+                "name": "Fake Project",
+                "slugId": "fake-project",
+                "url": "https://linear.app/testorg/project/fake-project",
+                "description": "A project without a lead.",
+                "state": "started",
+                "createdAt": "2025-09-01T09:00:00.000Z",
+                "updatedAt": "2026-06-01T09:00:00.000Z",
+                "startDate": null,
+                "targetDate": null,
+                "health": null,
+                "healthUpdatedAt": null,
+                "lead": null,
+                "labels": { "nodes": [] },
+                "initiatives": { "nodes": [ { "name": "Fake Initiative" } ] }
+              }
+            ],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+          }
+        }
+      }
+    },
+    {
+      "name": "hygiene_initiatives",
+      "match": ["initiatives(first: $first, after: $after, filter: $filter)"],
+      "operation": "query($filter: InitiativeFilter, $first: Int, $after: String) { initiatives(first: $first, after: $after, filter: $filter) { nodes { id name slugId url description status createdAt updatedAt targetDate health healthUpdatedAt owner { id name displayName } labels { nodes { name } } } pageInfo { hasNextPage endCursor } } }",
+      "response": {
+        "data": {
+          "initiatives": {
+            "nodes": [
+              {
+                "id": "dddd4444-0000-4000-8000-00000000000e",
+                "name": "Fake Initiative",
+                "slugId": "fake-initiative",
+                "url": "https://linear.app/testorg/initiative/fake-initiative",
+                "description": "Long-running initiative.",
+                "status": "Active",
+                "createdAt": "2025-01-01T09:00:00.000Z",
+                "updatedAt": "2026-06-01T09:00:00.000Z",
+                "targetDate": null,
+                "health": "atRisk",
+                "healthUpdatedAt": "2020-01-01T09:00:00.000Z",
+                "owner": { "id": "8f9d2c1e-4b3a-4f6e-9c8d-1a2b3c4d5e6f", "name": "Test User", "displayName": "test.user" },
+                "labels": { "nodes": [] }
+              }
+            ],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+          }
+        }
+      }
+    },
+    {
+      "name": "hygiene_issue_team",
+      "match": ["issue(id: $id) { team { id } }"],
+      "operation": "query($id: String!) { issue(id: $id) { team { id } } }",
+      "response": {
+        "data": {
+          "issue": { "team": { "id": "2a7c9f4b-8e1d-4c5a-b6f3-9d0e1f2a3b4c" } }
+        }
+      }
+    },
+    {
+      "name": "hygiene_issue_labels",
+      "match": ["issue(id: $id) { labels { nodes { id } } }"],
+      "operation": "query($id: String!) { issue(id: $id) { labels { nodes { id } } } }",
+      "response": {
+        "data": {
+          "issue": { "labels": { "nodes": [ { "id": "bbbb2222-0000-4000-8000-00000000000b" } ] } }
+        }
+      }
+    },
+    {
+      "name": "label_lookup_filtered",
+      "match": ["issueLabels(first: 50"],
+      "operation": "query($label: String!) { issueLabels(first: 50, filter: { name: { eqIgnoreCase: $label } }) { nodes { id name } } }",
+      "response": {
+        "data": {
+          "issueLabels": {
+            "nodes": [ { "id": "bbbb2222-0000-4000-8000-00000000000c", "name": "payments" } ]
+          }
+        }
+      }
+    },
+    {
+      "name": "hygiene_issue_update_labels_merged",
+      "match": ["issueUpdate"],
+      "match_variables": ["labelIds", "bbbb2222-0000-4000-8000-00000000000b", "bbbb2222-0000-4000-8000-00000000000c"],
+      "operation": "mutation($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success } }",
+      "response": {
+        "data": { "issueUpdate": { "success": true } }
+      }
+    },
+    {
+      "name": "hygiene_issue_update_state",
+      "match": ["issueUpdate"],
+      "match_variables": ["stateId"],
+      "operation": "mutation($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success } }",
+      "response": {
+        "data": { "issueUpdate": { "success": true } }
+      }
+    },
+    {
+      "name": "hygiene_comment_create",
+      "match": ["commentCreate"],
+      "match_variables": ["Reviewed and nudged"],
+      "operation": "mutation($input: CommentCreateInput!) { commentCreate(input: $input) { success } }",
+      "response": {
+        "data": { "commentCreate": { "success": true } }
       }
     }
   ]

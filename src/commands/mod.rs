@@ -12,6 +12,7 @@ pub mod export;
 pub mod favorites;
 pub mod git;
 pub mod history;
+pub mod hygiene;
 pub mod import;
 pub mod initiatives;
 pub mod interactive;

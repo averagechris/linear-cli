@@ -772,18 +772,7 @@ fn context_ttl_seconds(resource: &str, context: &config::ResolvedLinearContext) 
 }
 
 fn parse_duration_seconds(input: &str) -> Option<u64> {
-    let input = input.trim();
-    if input.is_empty() {
-        return None;
-    }
-    let (number, multiplier) = match input.chars().last()? {
-        'd' | 'D' => (&input[..input.len() - 1], 24 * 60 * 60),
-        'h' | 'H' => (&input[..input.len() - 1], 60 * 60),
-        'm' | 'M' => (&input[..input.len() - 1], 60),
-        's' | 'S' => (&input[..input.len() - 1], 1),
-        _ => (input, 1),
-    };
-    number.trim().parse::<u64>().ok().map(|n| n * multiplier)
+    crate::dates::parse_duration_seconds(input)
 }
 
 fn context_cache_json(resource: &str, context: &config::ResolvedLinearContext) -> Result<Value> {

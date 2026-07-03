@@ -3,7 +3,9 @@
 
 Offline checks (always run, no credentials):
   1. Each rule's `match` substrings appear in its `operation`, so the mock
-     actually intercepts the documented request.
+     actually intercepts the documented request. `match_variables` substrings
+     match against request *variables* (the mock server tests the whole
+     request body), so they are only type-checked here.
   2. Each rule's `response` structurally matches the `operation`'s selection
      set in both directions: every response field is selected, and every
      selected field is present in the response (Linear returns all selected
@@ -145,6 +147,11 @@ def offline_check(rules: list[dict]) -> list[str]:
         for needle in rule.get("match", []):
             if needle not in operation:
                 errors.append(f"{name}: match substring {needle!r} not found in operation")
+        for needle in rule.get("match_variables", []):
+            # Variable substrings match against the request's variables JSON,
+            # which is not reproducible offline; just require sane types.
+            if not isinstance(needle, str) or not needle:
+                errors.append(f"{name}: match_variables entries must be non-empty strings")
         selection = parse_selection_tree(operation)
         data = response.get("data")
         if data is None:
