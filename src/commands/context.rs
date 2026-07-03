@@ -931,10 +931,11 @@ async fn fetch_context_projects() -> Result<Vec<Value>> {
 }
 
 async fn fetch_context_initiatives() -> Result<Vec<Value>> {
+    // `Initiative.progress` no longer exists in the live schema; keep it out.
     let query = r#"
         query($first: Int, $after: String) {
             initiatives(first: $first, after: $after) {
-                nodes { id name status description progress }
+                nodes { id name status description targetDate health }
                 pageInfo { hasNextPage endCursor }
             }
         }

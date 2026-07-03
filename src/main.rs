@@ -44,9 +44,9 @@ use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
 use commands::{
     attachments, auth, bulk, comments, context, cycles, doctor, documents, export, favorites, git,
-    history, hygiene as hygiene_cmd, import, initiatives, interactive, issues, labels, metrics,
-    notifications, project_updates, projects, relations, roadmaps, search, sprint, statuses, sync,
-    teams, templates, time, triage, update, uploads, users, views, watch, webhooks,
+    history, hygiene as hygiene_cmd, import, initiative_updates, initiatives, interactive, issues,
+    labels, metrics, notifications, project_updates, projects, relations, roadmaps, search, sprint,
+    statuses, sync, teams, templates, time, triage, update, uploads, users, views, watch, webhooks,
 };
 use error::CliError;
 use output::print_json_owned;
@@ -601,10 +601,22 @@ on targeted errors, not on unrelated successful commands."#)]
     linear initiatives list                 # List all initiatives
     linear init get INITIATIVE_ID           # View initiative details
     linear init create "H1 Goals"           # Create an initiative
-    linear init update ID -s "Active"       # Update initiative status"#)]
+    linear init update ID -s "Active"       # Update initiative status
+    linear init update ID --target-date 2026-09-30 # Set target date"#)]
     Initiatives {
         #[command(subcommand)]
         action: initiatives::InitiativeCommands,
+    },
+    /// Manage initiative status updates - list, create, update, archive
+    #[command(alias = "iu")]
+    #[command(after_help = r#"EXAMPLES:
+    linear initiative-updates list INITIATIVE_ID   # List updates
+    linear iu get UPDATE_ID                        # View update details
+    linear iu create INITIATIVE_ID -b "On track" -H onTrack # Post health update
+    linear iu archive UPDATE_ID                    # Archive update"#)]
+    InitiativeUpdates {
+        #[command(subcommand)]
+        action: initiative_updates::InitiativeUpdateCommands,
     },
     /// Triage inbox - manage unassigned issues
     #[command(alias = "tr")]
@@ -1246,6 +1258,9 @@ async fn run_command(
         }
         Commands::Initiatives { action } => {
             initiatives::handle(action, output, &output.pagination).await?
+        }
+        Commands::InitiativeUpdates { action } => {
+            initiative_updates::handle(action, output).await?
         }
         Commands::Triage { action } => triage::handle(action, output).await?,
         Commands::Metrics { action } => metrics::handle(action, output).await?,

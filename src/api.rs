@@ -191,6 +191,31 @@ fn refine_http_error(http_err: CliError, body: &Value) -> CliError {
         .with_retry_after(http_err.retry_after.or(payload.retry_after))
 }
 
+/// Build the error for a non-2xx GraphQL response, keeping the payload's
+/// GraphQL `errors` array visible in the error details.
+///
+/// Linear returns e.g. GRAPHQL_VALIDATION_FAILED as HTTP 400 with a normal
+/// GraphQL error body; attaching that body directly (rather than wrapping it
+/// under a `summary`) lets `CliError::Display` surface the underlying messages
+/// in table mode instead of a bare "HTTP 400 Bad Request".
+fn http_error_with_body(status: StatusCode, headers: &HeaderMap, body: &str) -> CliError {
+    let details = if let Ok(parsed) = serde_json::from_str::<Value>(body) {
+        parsed
+    } else {
+        json!({ "body": body })
+    };
+    let err = refine_http_error(http_error(status, headers, "resource"), &details);
+    if details.get("errors").is_some() {
+        err.with_details(details)
+    } else if let Some(summary) = sanitize_remote_error_body(body) {
+        err.with_details(json!({ "summary": summary, "details": details }))
+    } else if !body.is_empty() {
+        err.with_details(details)
+    } else {
+        err
+    }
+}
+
 pub fn parse_linear_upload_url(raw: &str) -> Result<Url> {
     let url = Url::parse(raw).context("Failed to parse upload URL")?;
 
@@ -853,18 +878,7 @@ impl LinearClient {
 
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-            let details = if let Ok(body) = serde_json::from_str::<Value>(&body) {
-                body
-            } else {
-                json!({ "body": body.clone() })
-            };
-            let mut err = refine_http_error(http_error(status, &headers, "resource"), &details);
-            if let Some(summary) = sanitize_remote_error_body(&body) {
-                err = err.with_details(json!({ "summary": summary, "details": details }));
-            } else if !body.is_empty() {
-                err = err.with_details(details);
-            }
-            return Err(err.into());
+            return Err(http_error_with_body(status, &headers, &body).into());
         }
 
         let result: Value = response.json().await?;
@@ -1096,6 +1110,35 @@ mod tests {
         let body = json!({ "body": "<html>502</html>" });
         let refined = refine_http_error(http_err, &body);
         assert_eq!(refined.kind, ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn http_error_with_body_surfaces_graphql_validation_messages() {
+        // Regression: `p update --status X` returned a bare "HTTP 400 Bad
+        // Request" in table mode even though the body carried the GraphQL
+        // validation error. The rendered error must include the message.
+        let body = r#"{"errors":[{"message":"Cannot query field \"progress\" on type \"Initiative\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}"#;
+        let err = http_error_with_body(StatusCode::BAD_REQUEST, &HeaderMap::new(), body);
+        let rendered = err.to_string();
+        assert!(rendered.contains("HTTP 400"), "keeps status: {rendered}");
+        assert!(
+            rendered.contains("Cannot query field"),
+            "surfaces GraphQL message: {rendered}"
+        );
+    }
+
+    #[test]
+    fn http_error_with_body_surfaces_non_json_summary() {
+        let err = http_error_with_body(
+            StatusCode::BAD_GATEWAY,
+            &HeaderMap::new(),
+            "<html>upstream exploded</html>",
+        );
+        let rendered = err.to_string();
+        assert!(
+            rendered.contains("upstream exploded"),
+            "surfaces sanitized body summary: {rendered}"
+        );
     }
 
     #[test]

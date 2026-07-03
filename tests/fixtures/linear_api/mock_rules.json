@@ -295,6 +295,136 @@
       "response": {
         "data": { "commentCreate": { "success": true } }
       }
+    },
+    {
+      "name": "initiatives_list",
+      "match": ["initiatives(first: $first)"],
+      "operation": "query($first: Int) { initiatives(first: $first) { nodes { id name description status health targetDate sortOrder projects { nodes { id } } } } }",
+      "response": {
+        "data": {
+          "initiatives": {
+            "nodes": [
+              {
+                "id": "dddd4444-0000-4000-8000-00000000000e",
+                "name": "Fake Initiative",
+                "description": "Long-running initiative.",
+                "status": "Active",
+                "health": "atRisk",
+                "targetDate": null,
+                "sortOrder": 0,
+                "projects": { "nodes": [ { "id": "cccc3333-0000-4000-8000-00000000000d" } ] }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "project_statuses",
+      "match": ["projectStatuses(first: 250)"],
+      "operation": "query { projectStatuses(first: 250) { nodes { id name } } }",
+      "response": {
+        "data": {
+          "projectStatuses": {
+            "nodes": [
+              { "id": "ffff6666-0000-4000-8000-0000000000b1", "name": "Backlog" },
+              { "id": "ffff6666-0000-4000-8000-0000000000b2", "name": "In Progress" },
+              { "id": "ffff6666-0000-4000-8000-0000000000c1", "name": "Canceled" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "project_labels_paginated",
+      "match": ["projectLabels(first: $first"],
+      "operation": "query($first: Int, $after: String) { projectLabels(first: $first, after: $after) { nodes { id name } pageInfo { hasNextPage endCursor } } }",
+      "response": {
+        "data": {
+          "projectLabels": {
+            "nodes": [
+              { "id": "eeee5555-0000-4000-8000-000000000001", "name": "platform" },
+              { "id": "eeee5555-0000-4000-8000-000000000002", "name": "billing" }
+            ],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+          }
+        }
+      }
+    },
+    {
+      "name": "issue_labels_paginated",
+      "match": ["issueLabels(first: $first"],
+      "operation": "query($first: Int, $after: String) { issueLabels(first: $first, after: $after) { nodes { id name color description parent { id name } } pageInfo { hasNextPage endCursor } } }",
+      "response": {
+        "data": {
+          "issueLabels": {
+            "nodes": [
+              {
+                "id": "bbbb2222-0000-4000-8000-0000000000d1",
+                "name": "platform",
+                "color": "#26b5ce",
+                "description": null,
+                "parent": { "id": "bbbb2222-0000-4000-8000-0000000000d0", "name": "domain" }
+              },
+              {
+                "id": "bbbb2222-0000-4000-8000-0000000000d2",
+                "name": "billing",
+                "color": "#f2994a",
+                "description": null,
+                "parent": { "id": "bbbb2222-0000-4000-8000-0000000000d0", "name": "domain" }
+              }
+            ],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+          }
+        }
+      }
+    },
+    {
+      "name": "hygiene_project_labels",
+      "match": ["project(id: $id) { labels { nodes { id } } }"],
+      "operation": "query($id: String!) { project(id: $id) { labels { nodes { id } } } }",
+      "response": {
+        "data": {
+          "project": { "labels": { "nodes": [ { "id": "eeee5555-0000-4000-8000-000000000003" } ] } }
+        }
+      }
+    },
+    {
+      "name": "hygiene_project_update_labels_merged",
+      "match": ["projectUpdate(id: $id, input: $input) { success }"],
+      "match_variables": ["labelIds", "eeee5555-0000-4000-8000-000000000003", "eeee5555-0000-4000-8000-000000000001"],
+      "operation": "mutation($id: String!, $input: ProjectUpdateInput!) { projectUpdate(id: $id, input: $input) { success } }",
+      "response": {
+        "data": { "projectUpdate": { "success": true } }
+      }
+    },
+    {
+      "name": "project_update_labels",
+      "match": ["projectUpdate(id: $id, input: $input)", "project { id name }"],
+      "match_variables": ["labelIds", "eeee5555-0000-4000-8000-000000000001"],
+      "operation": "mutation($id: String!, $input: ProjectUpdateInput!) { projectUpdate(id: $id, input: $input) { success project { id name } } }",
+      "response": {
+        "data": {
+          "projectUpdate": {
+            "success": true,
+            "project": { "id": "cccc3333-0000-4000-8000-00000000000d", "name": "Fake Project" }
+          }
+        }
+      }
+    },
+    {
+      "name": "project_update_status",
+      "match": ["projectUpdate(id: $id, input: $input)", "project { id name }"],
+      "match_variables": ["statusId", "ffff6666-0000-4000-8000-0000000000c1"],
+      "operation": "mutation($id: String!, $input: ProjectUpdateInput!) { projectUpdate(id: $id, input: $input) { success project { id name } } }",
+      "response": {
+        "data": {
+          "projectUpdate": {
+            "success": true,
+            "project": { "id": "cccc3333-0000-4000-8000-00000000000d", "name": "Fake Project" }
+          }
+        }
+      }
     }
   ]
 }

@@ -1414,12 +1414,40 @@ async fn execute_project_update(
     let mut input = json!({});
     for (field, value) in sets {
         match field.as_str() {
-            "state" => input["statusId"] = json!(resolve_project_status_id(client, value).await?),
+            "state" => {
+                input["statusId"] =
+                    json!(super::projects::resolve_project_status_id(client, value).await?)
+            }
             "lead" => input["leadId"] = json!(resolve_user_id(client, value, &output.cache).await?),
             "startDate" => input["startDate"] = json!(value),
             "targetDate" => input["targetDate"] = json!(value),
             "name" => input["name"] = json!(value),
             "description" => input["description"] = json!(value),
+            "labels" => {
+                // `ProjectUpdateInput.labelIds` replaces the label set, so
+                // applying a label fix must merge with the project's existing
+                // labels. Project labels are a separate system from issue
+                // labels, hence the dedicated resolver.
+                let label_id = super::projects::resolve_project_label_id(client, value).await?;
+                let query =
+                    r#"query($id: String!) { project(id: $id) { labels { nodes { id } } } }"#;
+                let result = client
+                    .query(query, Some(json!({ "id": project_id })))
+                    .await?;
+                let mut label_ids: Vec<String> = result["data"]["project"]["labels"]["nodes"]
+                    .as_array()
+                    .map(|nodes| {
+                        nodes
+                            .iter()
+                            .filter_map(|n| n["id"].as_str().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if !label_ids.contains(&label_id) {
+                    label_ids.push(label_id);
+                }
+                input["labelIds"] = json!(label_ids);
+            }
             other => {
                 return Err(
                     CliError::general(format!("Unsupported project fix field '{other}'")).into(),
@@ -1435,22 +1463,6 @@ async fn execute_project_update(
         anyhow::bail!("projectUpdate reported failure");
     }
     Ok(())
-}
-
-async fn resolve_project_status_id(client: &LinearClient, status: &str) -> Result<String> {
-    let query = r#"query { projectStatuses { id name } }"#;
-    let result = client.query(query, None).await?;
-    result["data"]["projectStatuses"]
-        .as_array()
-        .and_then(|statuses| {
-            statuses.iter().find_map(|s| {
-                s["name"]
-                    .as_str()
-                    .filter(|name| name.eq_ignore_ascii_case(status))
-                    .and_then(|_| s["id"].as_str().map(str::to_string))
-            })
-        })
-        .ok_or_else(|| CliError::not_found(format!("Project status not found: {status}")).into())
 }
 
 async fn execute_initiative_update(

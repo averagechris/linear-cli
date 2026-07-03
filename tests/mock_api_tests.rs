@@ -269,6 +269,91 @@ fn api_url_requires_explicit_api_key() {
     );
 }
 
+#[test]
+fn initiatives_list_succeeds_against_mock() {
+    // Regression: the list query selected `Initiative.progress`, which the
+    // live schema removed, so every `initiatives list` failed with a 400.
+    // The fixture operation is validated against the live schema by
+    // scripts/check_api_fixtures.py --online, guarding future drift.
+    let server = start_mock_server();
+    let home = tempfile::tempdir().unwrap();
+    let (code, stdout, stderr) = run_cli_mocked(
+        &server,
+        home.path(),
+        &["initiatives", "list", "--output", "json"],
+    );
+    assert_eq!(code, 0, "initiatives list should succeed: {}", stderr);
+    assert!(
+        stdout.contains("Fake Initiative"),
+        "list should return the mocked initiative, got: {}",
+        stdout
+    );
+
+    // Table mode renders without the removed progress field.
+    let (code, stdout, stderr) = run_cli_mocked(&server, home.path(), &["initiatives", "list"]);
+    assert_eq!(code, 0, "table mode should succeed: {}", stderr);
+    assert!(
+        stdout.contains("Fake Initiative"),
+        "table should include the initiative, got: {}",
+        stdout
+    );
+}
+
+#[test]
+fn project_update_status_resolves_project_statuses_connection() {
+    // Regression: `projectStatuses` is a connection; querying it without the
+    // nodes wrapper failed with GRAPHQL_VALIDATION_FAILED (HTTP 400), so
+    // `p update --status <name>` was broken end to end.
+    let server = start_mock_server();
+    let home = tempfile::tempdir().unwrap();
+    let (code, stdout, stderr) = run_cli_mocked(
+        &server,
+        home.path(),
+        &[
+            "projects",
+            "update",
+            "cccc3333-0000-4000-8000-00000000000d",
+            "--status",
+            "Canceled",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(code, 0, "status update should succeed: {}", stderr);
+    assert!(
+        stdout.contains("Fake Project"),
+        "update should return the mocked project, got: {}",
+        stdout
+    );
+}
+
+#[test]
+fn project_update_label_flag_resolves_project_labels() {
+    // `p update -l` must resolve names through `projectLabels` (a separate
+    // label system from issue labels) and send `labelIds`.
+    let server = start_mock_server();
+    let home = tempfile::tempdir().unwrap();
+    let (code, stdout, stderr) = run_cli_mocked(
+        &server,
+        home.path(),
+        &[
+            "projects",
+            "update",
+            "cccc3333-0000-4000-8000-00000000000d",
+            "-l",
+            "platform",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(code, 0, "label update should succeed: {}", stderr);
+    assert!(
+        stdout.contains("Fake Project"),
+        "update should return the mocked project, got: {}",
+        stdout
+    );
+}
+
 // ---------------------------------------------------------------------------
 // `linear hygiene` end-to-end tests (docs/hygiene.md R38)
 // ---------------------------------------------------------------------------
@@ -1116,6 +1201,77 @@ fn hygiene_apply_option_and_input_flags() {
         ],
     );
     assert_eq!(code, 0, "apply --input should succeed: {stderr}");
+    assert_eq!(parse_json(&stdout)["results"][0]["status"], "applied");
+}
+
+/// Project label-group rule matching the hygiene_projects fixture; the
+/// "domain" group must be declared in the repo context (.linear.toml).
+const HYGIENE_RULES_PROJECT_LABEL_GROUP: &str = r#"
+[[hygiene.rules]]
+id = "project-missing-domain"
+entity = "project"
+[hygiene.rules.when]
+labels = { missing_group = "domain" }
+"#;
+
+#[test]
+fn hygiene_project_label_group_fix_generates_and_applies() {
+    // Regression: project label-group findings advertised `fix.kind =
+    // "options"` whose commands were `linear p update <uuid>` with no label
+    // argument, so every `hy apply --option <label>` failed with
+    // "Unsupported fix command". The full chain must work: fix generation
+    // emits `-l <label>`, apply decodes it, and the executor merges with the
+    // project's existing project labels.
+    let server = start_mock_server();
+    let home = tempfile::tempdir().unwrap();
+    write_hygiene_toml(home.path(), HYGIENE_RULES_PROJECT_LABEL_GROUP);
+    std::fs::write(
+        home.path().join(".linear.toml"),
+        "[[context.label_groups]]\nkey = \"domain\"\n",
+    )
+    .expect("write .linear.toml");
+
+    let (code, stdout, stderr) = run_hy(
+        &server,
+        home.path(),
+        &["hygiene", "check", "-t", "FAKE", "--output", "json"],
+    );
+    assert_eq!(code, 0, "check should succeed: {stderr}");
+    let findings = parse_json(&stdout);
+    let finding = findings
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["dedupeKey"] == "project-missing-domain:fake-project")
+        .unwrap_or_else(|| panic!("missing project finding: {stdout}"));
+    assert_eq!(finding["fix"]["kind"], "options");
+    let options = finding["fix"]["options"].as_array().unwrap();
+    let platform = options
+        .iter()
+        .find(|o| o["action"] == "platform")
+        .unwrap_or_else(|| panic!("missing platform option: {stdout}"));
+    assert_eq!(
+        platform["command"], "linear p update cccc3333-0000-4000-8000-00000000000d -l platform",
+        "fix command must carry the label flag"
+    );
+
+    // Applying the option resolves the project label and merges with the
+    // existing labels (the mock only matches a projectUpdate carrying both
+    // project-label UUIDs).
+    let (code, stdout, stderr) = run_hy(
+        &server,
+        home.path(),
+        &[
+            "hygiene",
+            "apply",
+            "project-missing-domain:fake-project",
+            "--option",
+            "platform",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(code, 0, "apply --option should succeed: {stderr}");
     assert_eq!(parse_json(&stdout)["results"][0]["status"], "applied");
 }
 

@@ -465,6 +465,13 @@ fn auto_derived_fix(rule: &WhenRule, entity: &EntityModel, inputs: &EvalInputs) 
                 return Some(options_from_candidates(entity, field, candidates));
             }
             Predicate::MissingGroup(group) => {
+                // Only advertise a fix when the CLI can actually set labels on
+                // this entity kind (e.g. initiatives have no label flag);
+                // otherwise the finding carries `fix: null` instead of
+                // unapplyable options.
+                if settable_field_flag(entity.kind, "labels").is_none() {
+                    continue;
+                }
                 let Some(candidates) = inputs.label_groups.get(group).filter(|c| !c.is_empty())
                 else {
                     continue;
@@ -1343,6 +1350,44 @@ updatedAt = { older_than = "7d" }
                 command: "linear i update ENG-3 -l payments".to_string()
             })
         );
+    }
+
+    #[test]
+    fn fix_auto_derived_missing_group_for_projects_emits_label_flag() {
+        // Regression: project label-group rules used to emit
+        // `linear p update <uuid>` with no label argument because "labels" was
+        // not settable for projects, producing advertised-but-unusable fixes.
+        let mut groups = BTreeMap::new();
+        groups.insert(
+            "domain".to_string(),
+            vec!["platform".to_string(), "billing".to_string()],
+        );
+        let candidates = BTreeMap::new();
+        let entity = project("proj-slug-1"); // no labels
+        let toml = "[[hygiene.rules]]\nid=\"project-missing-domain\"\nentity=\"project\"\n[hygiene.rules.when]\nlabels = { missing_group = \"domain\" }\n";
+        let finding = eval_single_with(toml, &entity, &groups, &candidates).unwrap();
+        let Some(Fix::Options { options }) = &finding.fix else {
+            panic!("expected options fix, got {:?}", finding.fix);
+        };
+        assert_eq!(options.len(), 2);
+        assert_eq!(options[0].action, "platform");
+        assert_eq!(
+            options[0].command,
+            "linear p update proj-proj-slug-1 -l platform"
+        );
+    }
+
+    #[test]
+    fn fix_auto_derived_missing_group_for_initiatives_is_null() {
+        // Initiatives have no CLI label flag, so the finding must carry
+        // `fix: null` instead of advertising commands that cannot be applied.
+        let mut groups = BTreeMap::new();
+        groups.insert("domain".to_string(), vec!["platform".to_string()]);
+        let candidates = BTreeMap::new();
+        let entity = initiative("init-slug-1", "Active", &[]);
+        let toml = "[[hygiene.rules]]\nid=\"init-missing-domain\"\nentity=\"initiative\"\n[hygiene.rules.when]\nlabels = { missing_group = \"domain\" }\n";
+        let finding = eval_single_with(toml, &entity, &groups, &candidates).unwrap();
+        assert_eq!(finding.fix, None);
     }
 
     #[test]

@@ -173,6 +173,7 @@ pub fn settable_field_flag(kind: EntityKind, field: &str) -> Option<&'static str
             "targetDate" => Some("--target-date"),
             "name" => Some("-n"),
             "description" => Some("-d"),
+            "labels" => Some("-l"),
             _ => None,
         },
         EntityKind::Initiative => match field {
@@ -643,6 +644,12 @@ mod tests {
             settable_field_flag(EntityKind::Project, "targetDate"),
             Some("--target-date")
         );
+        // Project labels map to `p update -l`; initiatives have no label flag.
+        assert_eq!(
+            settable_field_flag(EntityKind::Project, "labels"),
+            Some("-l")
+        );
+        assert_eq!(settable_field_flag(EntityKind::Initiative, "labels"), None);
         assert_eq!(settable_field_flag(EntityKind::Issue, "team"), None);
         assert!(settable_fields(EntityKind::Issue).contains(&"priority"));
         assert!(!settable_fields(EntityKind::Initiative).contains(&"owner"));

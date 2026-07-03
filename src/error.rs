@@ -166,6 +166,9 @@ impl fmt::Display for CliError {
                 if !messages.is_empty() {
                     write!(f, ": {}", messages.join("; "))?;
                 }
+            } else if let Some(summary) = details.get("summary").and_then(|s| s.as_str()) {
+                // details wraps a sanitized non-JSON remote body
+                write!(f, ": {}", summary)?;
             }
         }
 

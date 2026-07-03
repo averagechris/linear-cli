@@ -44,6 +44,12 @@ pub enum InitiativeCommands {
         /// New status
         #[arg(short, long)]
         status: Option<String>,
+        /// Target date (YYYY-MM-DD)
+        #[arg(long)]
+        target_date: Option<String>,
+        /// Initiative owner (user email, name, or UUID)
+        #[arg(long)]
+        owner: Option<String>,
         /// Preview without updating (dry run)
         #[arg(long)]
         dry_run: bool,
@@ -62,7 +68,8 @@ struct InitiativeRow {
     id: String,
     name: String,
     status: String,
-    progress: String,
+    health: String,
+    target_date: String,
     project_count: String,
 }
 
@@ -70,9 +77,20 @@ impl_tabled!(InitiativeRow {
     id => "ID",
     name => "Name",
     status => "Status",
-    progress => "Progress",
+    health => "Health",
+    target_date => "Target",
     project_count => "Projects",
 });
+
+fn format_health(health: Option<&str>) -> String {
+    match health {
+        Some("onTrack") => "On Track".green().to_string(),
+        Some("atRisk") => "At Risk".yellow().to_string(),
+        Some("offTrack") => "Off Track".red().to_string(),
+        Some(other) => other.to_string(),
+        None => "-".to_string(),
+    }
+}
 
 pub async fn handle(
     cmd: InitiativeCommands,
@@ -92,10 +110,22 @@ pub async fn handle(
             name,
             description,
             status,
+            target_date,
+            owner,
             dry_run,
         } => {
             let dry_run = dry_run || output.dry_run;
-            update_initiative(&id, name, description, status, dry_run, output).await
+            update_initiative(
+                &id,
+                name,
+                description,
+                status,
+                target_date,
+                owner,
+                dry_run,
+                output,
+            )
+            .await
         }
         InitiativeCommands::Delete { id, force } => delete_initiative(&id, force).await,
     }
@@ -106,6 +136,8 @@ async fn list_initiatives(output: &OutputOptions, pagination: &PaginationOptions
     let pagination = pagination.with_default_limit(250);
     let limit = pagination.limit.unwrap_or(250);
 
+    // NB: the live schema removed `Initiative.progress`; selecting it now
+    // fails with GRAPHQL_VALIDATION_FAILED, so it must stay out of this query.
     let query = r#"
         query($first: Int) {
             initiatives(first: $first) {
@@ -114,8 +146,9 @@ async fn list_initiatives(output: &OutputOptions, pagination: &PaginationOptions
                     name
                     description
                     status
+                    health
+                    targetDate
                     sortOrder
-                    progress
                     projects {
                         nodes {
                             id
@@ -145,10 +178,6 @@ async fn list_initiatives(output: &OutputOptions, pagination: &PaginationOptions
             .iter()
             .filter_map(|v| {
                 let i = serde_json::from_value::<Initiative>(v.clone()).ok()?;
-                let progress = format!(
-                    "{}%",
-                    (v["progress"].as_f64().unwrap_or(0.0) * 100.0) as i32
-                );
                 let project_count = v["projects"]["nodes"]
                     .as_array()
                     .map(|a| a.len().to_string())
@@ -157,7 +186,8 @@ async fn list_initiatives(output: &OutputOptions, pagination: &PaginationOptions
                     id: i.id,
                     name: truncate(&i.name, max_width),
                     status: i.status.as_deref().unwrap_or("-").to_string(),
-                    progress,
+                    health: format_health(v["health"].as_str()),
+                    target_date: i.target_date.as_deref().unwrap_or("-").to_string(),
                     project_count,
                 })
             })
@@ -183,6 +213,8 @@ async fn get_initiative(id: &str, output: &OutputOptions) -> Result<()> {
                 name
                 description
                 status
+                health
+                targetDate
                 sortOrder
                 createdAt
                 updatedAt
@@ -257,11 +289,14 @@ async fn create_initiative(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn update_initiative(
     id: &str,
     name: Option<String>,
     description: Option<String>,
     status: Option<String>,
+    target_date: Option<String>,
+    owner: Option<String>,
     dry_run: bool,
     output: &OutputOptions,
 ) -> Result<()> {
@@ -276,6 +311,18 @@ async fn update_initiative(
     }
     if let Some(s) = status {
         input["status"] = json!(s);
+    }
+    if let Some(td) = target_date {
+        input["targetDate"] = json!(td);
+    }
+    if let Some(ref o) = owner {
+        // Resolve user name/email to UUID (skip during dry-run to avoid API calls)
+        if dry_run {
+            input["ownerId"] = json!(o);
+        } else {
+            let owner_id = crate::api::resolve_user_id(&client, o, &output.cache).await?;
+            input["ownerId"] = json!(owner_id);
+        }
     }
 
     if input.as_object().map(|o| o.is_empty()).unwrap_or(true) {

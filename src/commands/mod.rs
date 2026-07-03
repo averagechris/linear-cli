@@ -14,6 +14,7 @@ pub mod git;
 pub mod history;
 pub mod hygiene;
 pub mod import;
+pub mod initiative_updates;
 pub mod initiatives;
 pub mod interactive;
 pub mod issues;

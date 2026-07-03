@@ -96,7 +96,8 @@ pub enum ProjectCommands {
     linear p update ID --start-date 2025-01-01           # Set start date
     linear p update ID --lead user@co.com                # Set project lead
     linear p update ID -p 2                              # Set priority to high
-    linear p update ID --status "In Progress"            # Change status"#)]
+    linear p update ID --status "In Progress"            # Change status
+    linear p update ID -l platform -l billing            # Replace project labels"#)]
     Update {
         /// Project ID or name
         id: String,
@@ -130,6 +131,9 @@ pub enum ProjectCommands {
         /// Project status (name or UUID)
         #[arg(long)]
         status: Option<String>,
+        /// Project label names or UUIDs (replaces existing labels, like `i update -l`)
+        #[arg(short = 'l', long = "label")]
+        labels: Vec<String>,
         /// Preview without updating (dry run)
         #[arg(long)]
         dry_run: bool,
@@ -266,6 +270,7 @@ pub async fn handle(cmd: ProjectCommands, output: &OutputOptions) -> Result<()> 
             priority,
             content,
             status,
+            labels,
             dry_run,
         } => {
             let dry_run = dry_run || output.dry_run;
@@ -281,6 +286,7 @@ pub async fn handle(cmd: ProjectCommands, output: &OutputOptions) -> Result<()> 
                 priority,
                 content,
                 status,
+                labels,
                 dry_run,
                 output,
             )
@@ -671,24 +677,30 @@ async fn get_projects(ids: &[String], output: &OutputOptions) -> Result<()> {
 }
 
 /// Resolve a project status name to a UUID.
-/// Project statuses are organization-level in Linear.
-async fn resolve_project_status_id(client: &LinearClient, status: &str) -> Result<String> {
+/// Project statuses are organization-level in Linear. `projectStatuses` is a
+/// connection in the live schema, so the nodes wrapper is required.
+pub(crate) async fn resolve_project_status_id(
+    client: &LinearClient,
+    status: &str,
+) -> Result<String> {
     if is_uuid(status) {
         return Ok(status.to_string());
     }
 
     let query = r#"
         query {
-            projectStatuses {
-                id
-                name
+            projectStatuses(first: 250) {
+                nodes {
+                    id
+                    name
+                }
             }
         }
     "#;
 
     let result = client.query(query, None).await?;
     let empty = vec![];
-    let statuses = result["data"]["projectStatuses"]
+    let statuses = result["data"]["projectStatuses"]["nodes"]
         .as_array()
         .unwrap_or(&empty);
 
@@ -709,6 +721,59 @@ async fn resolve_project_status_id(client: &LinearClient, status: &str) -> Resul
         statuses
             .iter()
             .filter_map(|s| s["name"].as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+/// Resolve a project label name to a UUID.
+///
+/// Project labels are a separate label system from issue labels
+/// (`projectLabels` / `ProjectUpdateInput.labelIds`), so this cannot reuse
+/// `resolve_label_id`.
+pub(crate) async fn resolve_project_label_id(client: &LinearClient, label: &str) -> Result<String> {
+    if is_uuid(label) {
+        return Ok(label.to_string());
+    }
+
+    let query = r#"
+        query($first: Int, $after: String) {
+            projectLabels(first: $first, after: $after) {
+                nodes { id name }
+                pageInfo { hasNextPage endCursor }
+            }
+        }
+    "#;
+
+    let labels = paginate_nodes(
+        client,
+        query,
+        serde_json::Map::new(),
+        &["data", "projectLabels", "nodes"],
+        &["data", "projectLabels", "pageInfo"],
+        &crate::pagination::PaginationOptions {
+            all: true,
+            ..Default::default()
+        },
+        250,
+    )
+    .await?;
+
+    if let Some(id) = labels.iter().find_map(|l| {
+        l["name"]
+            .as_str()
+            .filter(|name| name.eq_ignore_ascii_case(label))
+            .and_then(|_| l["id"].as_str().map(str::to_string))
+    }) {
+        return Ok(id);
+    }
+
+    anyhow::bail!(
+        "Project label not found: '{}'. Available labels: {}",
+        label,
+        labels
+            .iter()
+            .filter_map(|l| l["name"].as_str())
             .collect::<Vec<_>>()
             .join(", ")
     )
@@ -821,6 +886,7 @@ async fn update_project(
     priority: Option<i32>,
     content: Option<String>,
     status: Option<String>,
+    labels: Vec<String>,
     dry_run: bool,
     output: &OutputOptions,
 ) -> Result<()> {
@@ -866,6 +932,18 @@ async fn update_project(
         } else {
             let status_id = resolve_project_status_id(&client, s).await?;
             input["statusId"] = json!(status_id);
+        }
+    }
+    if !labels.is_empty() {
+        // Resolve project label names to UUIDs (skip during dry-run to avoid API calls)
+        if dry_run {
+            input["labelIds"] = json!(labels);
+        } else {
+            let mut label_ids = Vec::new();
+            for label in &labels {
+                label_ids.push(resolve_project_label_id(&client, label).await?);
+            }
+            input["labelIds"] = json!(label_ids);
         }
     }
 
