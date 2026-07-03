@@ -809,6 +809,16 @@ fn parse_conditions(
     let mut conditions = Vec::new();
     for (op, value) in op_table {
         if let Some(predicate) = parse_predicate(op, value, field, spec, label, errors) {
+            // `priority` exposes Linear's 0 ("no priority") as missing, so a
+            // numeric comparison against 0 can never match — reject the trap
+            // instead of silently producing zero findings.
+            if field == "priority" && matches!(predicate, Predicate::Eq(n) if n == 0.0) {
+                errors.push(format!(
+                    "{label}: 'priority = {{ eq = 0 }}' never matches (Linear's 0 means unset \
+                     and is exposed as missing); use 'priority = {{ missing = true }}'"
+                ));
+                continue;
+            }
             conditions.push(Condition {
                 field: field.to_string(),
                 predicate,

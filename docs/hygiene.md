@@ -269,7 +269,7 @@ Predicates reference flattened fields. v1 model (extensible):
 |---|---|---|---|---|
 | `status` (workflow state name) | ✓ | | | string |
 | `state` (lifecycle: planned/started/…) | | ✓ | ✓ | string |
-| `priority` (0–4; 0 = none) | ✓ | | | number |
+| `priority` (1–4; Linear's 0 = unset, exposed as missing) | ✓ | | | number\|null |
 | `estimate` | ✓ | | | number\|null |
 | `assignee` | ✓ | | | string\|null |
 | `lead` | | ✓ | | string\|null |
@@ -465,6 +465,13 @@ content always arrive via explicit per-finding `apply` flags.
   intentionally omitted: `status` is non-nullable in the field model, so
   `missing`-based fixes (the only consumer of candidates) can never reference
   it, and a multi-team scope would otherwise need per-team candidate sets.
+- Fetch page sizes are bounded per entity type against Linear's ~10k GraphQL
+  complexity budget (issues 100, projects/initiatives 50; nested connections
+  carry explicit `first` limits). The global `--page-size` is honored but
+  clamped to those maxima; hygiene always paginates fully.
+- Issue `priority` 0 ("no priority") is exposed as *missing* in the field
+  model: write `priority = { missing = true }` (auto-derives p1–p4 fix
+  options); numeric comparisons never match an unset priority.
 - Applying a label fix merges with the issue's existing labels via the API
   (`linear i update -l` alone would replace the label set).
 - `report --by team` groups issues by their identifier prefix (`ENG-123` →

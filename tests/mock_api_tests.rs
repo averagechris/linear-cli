@@ -722,6 +722,37 @@ fn hygiene_rules_env_var_fallback_and_flag_precedence() {
 }
 
 #[test]
+fn hygiene_check_fetch_failure_exits_nonzero_even_with_limit() {
+    // Regression guard from the live trial: output-shaping flags like --limit
+    // must never swallow a fetch failure's exit code (JSON error envelope is
+    // printed either way).
+    let home = tempfile::tempdir().unwrap();
+    write_hygiene_toml(home.path(), HYGIENE_RULES_ALL_ENTITIES);
+    // Unroutable local endpoint: the fetch fails without touching the network.
+    let dead = "http://127.0.0.1:1";
+
+    let (code, _, stderr) = run_hy(
+        dead,
+        home.path(),
+        &["hygiene", "check", "-t", "FAKE", "--output", "json"],
+    );
+    assert_eq!(code, 1, "fetch failure must exit 1: {stderr}");
+
+    let (code, _, stderr) = run_hy(
+        dead,
+        home.path(),
+        &[
+            "hygiene", "check", "-t", "FAKE", "--output", "json", "--limit", "25",
+        ],
+    );
+    assert_eq!(code, 1, "--limit must not swallow the exit code: {stderr}");
+    assert!(
+        stderr.contains("\"error\":true") || stderr.contains("\"error\": true"),
+        "JSON error envelope expected on stderr: {stderr}"
+    );
+}
+
+#[test]
 fn hygiene_missing_override_rules_file_exits_one_naming_path() {
     let server = start_mock_server();
     let home = tempfile::tempdir().unwrap();

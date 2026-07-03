@@ -174,7 +174,7 @@ pub fn evaluate_when_rule(
         severity: rule.severity,
         entity: finding_entity(entity),
         owner: entity.owner.clone(),
-        summary: format!("{} {}", entity.identifier, descriptions.join(", ")),
+        summary: format!("{} {}", display_label(entity), descriptions.join(", ")),
         evidence: Value::Object(evidence),
         fix: derive_fix(rule, entity, inputs),
     })
@@ -187,6 +187,23 @@ fn finding_entity(entity: &EntityModel) -> FindingEntity {
         identifier: entity.identifier.clone(),
         title: entity.title.clone(),
         url: entity.url.clone(),
+    }
+}
+
+/// Human-facing label for summary lines: issues keep their identifier
+/// (ENG-123 is meaningful), while projects and initiatives use their name
+/// (their identifier is an opaque slug id). Display only — dedupe keys
+/// always use the stable identifier.
+fn display_label(entity: &EntityModel) -> &str {
+    match entity.kind {
+        EntityKind::Issue => &entity.identifier,
+        EntityKind::Project | EntityKind::Initiative => {
+            if entity.title.trim().is_empty() {
+                &entity.identifier
+            } else {
+                &entity.title
+            }
+        }
     }
 }
 
@@ -668,7 +685,7 @@ fn initiative_completed_but_active(rule: &BuiltinRule, entities: &[&EntityModel]
             owner: entity.owner.clone(),
             summary: format!(
                 "{} has all {} linked projects completed but is still '{}'",
-                entity.identifier,
+                display_label(entity),
                 states.len(),
                 state
             ),
@@ -717,7 +734,7 @@ fn project_single_issue(
             owner: entity.owner.clone(),
             summary: format!(
                 "{} wraps {count} issue(s) after {} (expected ≥ {min_issues} issues within {min_age})",
-                entity.identifier,
+                display_label(entity),
                 format_duration_compact(age.max(0) as u64)
             ),
             evidence: json!({
@@ -760,7 +777,7 @@ fn project_no_target_date(
             owner: entity.owner.clone(),
             summary: format!(
                 "{} has no target date after {} (threshold {min_age})",
-                entity.identifier,
+                display_label(entity),
                 format_duration_compact(age.max(0) as u64)
             ),
             evidence: json!({
@@ -1193,11 +1210,106 @@ set = { status = "Todo" }
 
     #[test]
     fn fix_auto_derived_priority_actions_use_p_prefix() {
-        // priority is non-nullable so `missing` can't be used on it; exercise the
-        // slug logic directly instead.
         assert_eq!(action_slug("priority", "2"), "p2");
         assert_eq!(action_slug("status", "In Progress"), "in-progress");
         assert_eq!(action_slug("labels", "Payments"), "payments");
+    }
+
+    #[test]
+    fn fix_auto_derived_for_missing_priority() {
+        // Priority 0 maps to missing in the model, so `missing = true` rules
+        // match and auto-derivation enumerates the supplied 1–4 candidates.
+        let groups = BTreeMap::new();
+        let mut entity = issue("ENG-11");
+        entity.fields.insert("priority".into(), FieldValue::Null);
+        let mut candidates: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        candidates.insert(
+            "priority".to_string(),
+            vec!["1".into(), "2".into(), "3".into(), "4".into()],
+        );
+        let toml = "[[hygiene.rules]]\nid=\"missing-priority\"\nentity=\"issue\"\n[hygiene.rules.when]\npriority = { missing = true }\n";
+        let finding = eval_single_with(toml, &entity, &groups, &candidates).unwrap();
+        let Some(Fix::Options { options }) = &finding.fix else {
+            panic!("expected options fix, got {:?}", finding.fix);
+        };
+        assert_eq!(options.len(), 4);
+        assert_eq!(options[0].action, "p1");
+        assert_eq!(options[0].command, "linear i update ENG-11 -p 1");
+        assert_eq!(options[3].action, "p4");
+
+        // A set priority is not missing: no finding.
+        entity
+            .fields
+            .insert("priority".into(), FieldValue::Number(2.0));
+        assert!(eval_single_with(toml, &entity, &groups, &candidates).is_none());
+
+        // Numeric comparison against 0 is an unsatisfiable trap and is
+        // rejected at config load (rules must use `missing = true`).
+        let eq_zero = "[[hygiene.rules]]\nid=\"r\"\nentity=\"issue\"\n[hygiene.rules.when]\npriority = { eq = 0 }\n";
+        let err = crate::hygiene::config::parse_hygiene_toml(eq_zero).unwrap_err();
+        assert!(
+            err.iter().any(|e| e.contains("missing = true")),
+            "eq = 0 on priority should be a config error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn summaries_use_names_for_projects_and_initiatives() {
+        // Display only: summaries show the human name; dedupe keys keep the
+        // stable identifier (slug id).
+        let mut proj = project("proj-slug-9b85");
+        proj.title = "Payments Revamp".to_string();
+        proj.fields.insert("updatedAt".into(), days_ago(30));
+        let toml = r#"
+[[hygiene.rules]]
+id = "stale-project"
+entity = "project"
+[hygiene.rules.when]
+updatedAt = { older_than = "7d" }
+"#;
+        let config = rules_from(toml);
+        let Rule::When(rule) = &config.rules[0] else {
+            panic!()
+        };
+        let groups = BTreeMap::new();
+        let candidates = BTreeMap::new();
+        let finding = evaluate_when_rule(rule, &proj, &empty_inputs(&groups, &candidates)).unwrap();
+        assert_eq!(finding.dedupe_key, "stale-project:proj-slug-9b85");
+        assert!(
+            finding.summary.starts_with("Payments Revamp "),
+            "project summary should lead with the name: {}",
+            finding.summary
+        );
+
+        // Initiative builtin summary also uses the name.
+        let rule =
+            builtin_rule("[[hygiene.rules]]\nbuiltin = \"initiative-completed-but-active\"\n");
+        let mut init = initiative("init-slug-9b85", "started", &["completed"]);
+        init.title = "Platform Migration".to_string();
+        let entities = [&init];
+        let findings = evaluate_builtin(&rule, &entities, &empty_inputs(&groups, &candidates));
+        assert_eq!(findings.len(), 1);
+        assert_eq!(
+            findings[0].dedupe_key,
+            "initiative-completed-but-active:init-slug-9b85"
+        );
+        assert!(
+            findings[0].summary.starts_with("Platform Migration "),
+            "initiative summary should lead with the name: {}",
+            findings[0].summary
+        );
+
+        // Issues keep their identifier in summaries.
+        let mut e = issue("ENG-1");
+        e.fields.insert("updatedAt".into(), days_ago(30));
+        let toml = "[[hygiene.rules]]\nid=\"r\"\nentity=\"issue\"\n[hygiene.rules.when]\nupdatedAt = { older_than = \"7d\" }\n";
+        let finding = eval_single(toml, &e).unwrap();
+        assert!(finding.summary.starts_with("ENG-1 "));
+
+        // A project without a name falls back to the identifier.
+        let mut unnamed = project("slug-only");
+        unnamed.title = String::new();
+        assert_eq!(display_label(&unnamed), "slug-only");
     }
 
     #[test]

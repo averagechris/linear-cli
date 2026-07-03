@@ -46,8 +46,36 @@ use crate::AgentOptions;
 
 /// Concurrency for `fix --yes` mutation execution (matches `bulk`).
 const FIX_CONCURRENCY: usize = 8;
-/// Page size for entity fetches.
-const FETCH_PAGE_SIZE: usize = 100;
+
+/// Per-entity fetch page sizes, sized against Linear's ~10,000 GraphQL
+/// complexity budget per request. Linear roughly charges
+/// `pageSize × (ownFields + Σ nestedFirst × nestedFields)` for a paginated
+/// query, and nested connections without an explicit `first` default to ~50.
+/// Worst cases for the selections in [`fetch_entities`]:
+///
+///   issues:      100 × (~20 fields + 25×1 labels)                  ≈ 4,500
+///   projects:     50 × (~20 fields + 25×1 labels + 10×2 initiatives
+///                       + 100×1 issue ids when a rule needs counts) ≈ 8,250
+///   initiatives:  50 × (~15 fields + 25×1 labels
+///                       + 50×2 projects when a rule needs states)   ≈ 7,000
+///
+/// All comfortably under budget. The previous project fetch (100 per page,
+/// nested `labels`/`initiatives` connections left at the ~50 default) cost a
+/// constant ≈ 11,740 and was rejected with "Query too complex".
+const ISSUE_FETCH_PAGE_SIZE: usize = 100;
+const PROJECT_FETCH_PAGE_SIZE: usize = 50;
+const INITIATIVE_FETCH_PAGE_SIZE: usize = 50;
+
+/// Pagination for one entity fetch: hygiene always paginates fully
+/// (`all: true`), honoring the global `--page-size` clamped to the
+/// per-entity complexity-safe maximum above.
+fn fetch_pagination(requested: Option<usize>, max: usize) -> PaginationOptions {
+    PaginationOptions {
+        all: true,
+        page_size: Some(requested.unwrap_or(max).clamp(1, max)),
+        ..Default::default()
+    }
+}
 
 /// Shared scoping flags (R19). The org-wide axis reuses the global `--all`
 /// flag (which also means "fetch all pages"; hygiene always paginates fully).
@@ -338,11 +366,8 @@ async fn fetch_entities(
     scope: &ResolvedScope,
     config: &HygieneConfig,
     rules: &[Rule],
+    requested_page_size: Option<usize>,
 ) -> Result<Vec<EntityModel>> {
-    let pagination = PaginationOptions {
-        all: true,
-        ..Default::default()
-    };
     let mut entities = Vec::new();
 
     if kinds.contains(&EntityKind::Issue) {
@@ -356,7 +381,7 @@ async fn fetch_entities(
                         team { key }
                         project { name }
                         cycle { name number }
-                        labels { nodes { name } }
+                        labels(first: 25) { nodes { name } }
                     }
                     pageInfo { hasNextPage endCursor }
                 }
@@ -389,8 +414,8 @@ async fn fetch_entities(
             vars,
             &["data", "issues", "nodes"],
             &["data", "issues", "pageInfo"],
-            &pagination,
-            FETCH_PAGE_SIZE,
+            &fetch_pagination(requested_page_size, ISSUE_FETCH_PAGE_SIZE),
+            ISSUE_FETCH_PAGE_SIZE,
         )
         .await?;
         entities.extend(nodes.iter().map(EntityModel::issue_from_json));
@@ -403,7 +428,7 @@ async fn fetch_entities(
             .iter()
             .any(|r| matches!(r, Rule::Builtin(b) if b.kind == BuiltinKind::ProjectSingleIssue));
         let issues_selection = if need_issue_counts {
-            "issues(first: 250) { nodes { id } }"
+            "issues(first: 100) { nodes { id } }"
         } else {
             ""
         };
@@ -415,8 +440,8 @@ async fn fetch_entities(
                         id name slugId url description state createdAt updatedAt
                         startDate targetDate health healthUpdatedAt
                         lead {{ id name displayName }}
-                        labels {{ nodes {{ name }} }}
-                        initiatives {{ nodes {{ name }} }}
+                        labels(first: 25) {{ nodes {{ name }} }}
+                        initiatives(first: 10) {{ nodes {{ name }} }}
                         {issues_selection}
                     }}
                     pageInfo {{ hasNextPage endCursor }}
@@ -457,8 +482,8 @@ async fn fetch_entities(
             vars,
             &["data", "projects", "nodes"],
             &["data", "projects", "pageInfo"],
-            &pagination,
-            FETCH_PAGE_SIZE,
+            &fetch_pagination(requested_page_size, PROJECT_FETCH_PAGE_SIZE),
+            PROJECT_FETCH_PAGE_SIZE,
         )
         .await?;
         entities.extend(nodes.iter().map(EntityModel::project_from_json));
@@ -476,7 +501,7 @@ async fn fetch_entities(
             }
         });
         let projects_selection = if need_projects {
-            "projects { nodes { id state } }"
+            "projects(first: 50) { nodes { id state } }"
         } else {
             ""
         };
@@ -488,7 +513,7 @@ async fn fetch_entities(
                         id name slugId url description status createdAt updatedAt
                         targetDate health healthUpdatedAt
                         owner {{ id name displayName }}
-                        labels {{ nodes {{ name }} }}
+                        labels(first: 25) {{ nodes {{ name }} }}
                         {projects_selection}
                     }}
                     pageInfo {{ hasNextPage endCursor }}
@@ -519,8 +544,8 @@ async fn fetch_entities(
             vars,
             &["data", "initiatives", "nodes"],
             &["data", "initiatives", "pageInfo"],
-            &pagination,
-            FETCH_PAGE_SIZE,
+            &fetch_pagination(requested_page_size, INITIATIVE_FETCH_PAGE_SIZE),
+            INITIATIVE_FETCH_PAGE_SIZE,
         )
         .await?;
         entities.extend(nodes.iter().map(EntityModel::initiative_from_json));
@@ -712,7 +737,15 @@ async fn run_pipeline(
     let client = LinearClient::new()?;
     let scope = resolve_scope(args, &config, &client, output).await?;
     let kinds = kinds_to_fetch(&rules, &scope);
-    let entities = fetch_entities(&client, &kinds, &scope, &config, &rules).await?;
+    let entities = fetch_entities(
+        &client,
+        &kinds,
+        &scope,
+        &config,
+        &rules,
+        output.pagination.page_size,
+    )
+    .await?;
     let (label_groups, field_candidates) = build_eval_metadata(&client, &rules, output).await?;
 
     let now = Utc::now();
@@ -947,6 +980,17 @@ priority = { eq = 1 }
 status = { in = ["Backlog"] }
 [hygiene.rules.fix]
 set = { status = "Todo" }
+
+# --- Missing priority. Linear stores "no priority" as 0, but the field model
+# --- exposes 0 as missing, so use `missing = true` (numeric comparisons never
+# --- match an unset priority). Auto-derives p1-p4 fix options.
+[[hygiene.rules]]
+id = "missing-priority"
+entity = "issue"
+severity = "medium"
+[hygiene.rules.when]
+status = { not_in = ["Triage", "Backlog", "Done", "Canceled", "Duplicate"] }
+priority = { missing = true }
 
 # --- Stale review: `older_than` staleness plus an options fix where one
 # --- option needs authored content (`comment = true`).
@@ -2059,6 +2103,29 @@ fn snooze(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fetch_pagination_clamps_page_size_to_entity_maximum() {
+        // Default: entity maximum, full pagination.
+        let opts = fetch_pagination(None, PROJECT_FETCH_PAGE_SIZE);
+        assert!(opts.all);
+        assert_eq!(opts.page_size, Some(PROJECT_FETCH_PAGE_SIZE));
+        // Requested sizes are honored below the complexity-safe maximum...
+        assert_eq!(
+            fetch_pagination(Some(25), ISSUE_FETCH_PAGE_SIZE).page_size,
+            Some(25)
+        );
+        // ...and clamped above it (project fetches must stay under Linear's
+        // ~10k complexity budget; see the constant docs for the math).
+        assert_eq!(
+            fetch_pagination(Some(500), PROJECT_FETCH_PAGE_SIZE).page_size,
+            Some(PROJECT_FETCH_PAGE_SIZE)
+        );
+        assert_eq!(
+            fetch_pagination(Some(0), INITIATIVE_FETCH_PAGE_SIZE).page_size,
+            Some(1)
+        );
+    }
 
     #[test]
     fn tokenize_handles_plain_and_quoted_args() {

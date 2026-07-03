@@ -88,7 +88,11 @@ const fn spec(name: &'static str, ty: FieldType, nullable: bool) -> FieldSpec {
 
 const ISSUE_FIELDS: &[FieldSpec] = &[
     spec("status", FieldType::String, false),
-    spec("priority", FieldType::Number, false),
+    // Linear stores "no priority" as 0 on a non-nullable field; the model
+    // exposes 0 as missing (see `issue_from_json`) so `missing = true` rules
+    // and auto-derived fixes work. Numeric comparisons never match an unset
+    // priority (docs/hygiene.md §4.1).
+    spec("priority", FieldType::Number, true),
     spec("estimate", FieldType::Number, true),
     spec("assignee", FieldType::String, true),
     spec("title", FieldType::String, false),
@@ -371,7 +375,14 @@ impl EntityModel {
     pub fn issue_from_json(node: &Value) -> Self {
         let mut fields = BTreeMap::new();
         fields.insert("status".into(), string_at(node, &["state", "name"]));
-        fields.insert("priority".into(), number_of(&node["priority"]));
+        // Priority 0 means "no priority" in Linear's API (the field itself is
+        // non-nullable); expose it as missing so `priority = { missing = true }`
+        // rules match and auto-derived p1–p4 fixes fire.
+        let priority = match number_of(&node["priority"]) {
+            FieldValue::Number(0.0) => FieldValue::Null,
+            value => value,
+        };
+        fields.insert("priority".into(), priority);
         fields.insert("estimate".into(), number_of(&node["estimate"]));
         fields.insert("assignee".into(), person_name(&node["assignee"]));
         fields.insert("title".into(), string_of(&node["title"]));
@@ -614,7 +625,9 @@ mod tests {
         assert!(field_spec(EntityKind::Issue, "dueDate").is_some());
         assert!(field_spec(EntityKind::Project, "dueDate").is_none());
         assert!(field_spec(EntityKind::Issue, "estimate").unwrap().nullable);
-        assert!(!field_spec(EntityKind::Issue, "priority").unwrap().nullable);
+        // Priority is exposed as nullable: Linear's 0 ("no priority") maps to
+        // missing in the model.
+        assert!(field_spec(EntityKind::Issue, "priority").unwrap().nullable);
         assert_eq!(
             field_spec(EntityKind::Initiative, "healthUpdatedAt")
                 .unwrap()
@@ -697,6 +710,17 @@ mod tests {
         assert_eq!(entity.field("updatedAt"), FieldValue::Null);
         assert!(entity.owner.is_none());
         assert!(entity.url.is_none());
+    }
+
+    #[test]
+    fn issue_priority_zero_maps_to_missing() {
+        let entity = EntityModel::issue_from_json(&json!({ "identifier": "ENG-1", "priority": 0 }));
+        assert_eq!(entity.field("priority"), FieldValue::Null);
+        assert!(entity.field("priority").is_missing());
+        // Real priorities stay numeric.
+        let entity = EntityModel::issue_from_json(&json!({ "identifier": "ENG-2", "priority": 1 }));
+        assert_eq!(entity.field("priority"), FieldValue::Number(1.0));
+        assert!(!entity.field("priority").is_missing());
     }
 
     #[test]
