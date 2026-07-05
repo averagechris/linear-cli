@@ -16,19 +16,17 @@ For the normal deterministic release flow, create/use the jj release change and 
 nix run .#release -- --version X.Y.Z
 ```
 
-This prepares `Cargo.toml`, `CHANGELOG.md`, and `builds/release-linux-x86_64.yml`, runs validation, tags/pushes `vX.Y.Z`, builds the local `.#release-artifact`, copies it into `dist/downloads/`, and builds `dist/pages/linear-cli-pages.tar.gz` for SourceHut Pages.
+This prepares `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md`, and `builds/release-linux-x86_64.yml`, runs validation, tags/pushes `vX.Y.Z`, builds the local `.#release-artifact`, uploads the artifact to the SourceHut tag, and submits the central Pages refresh build for `averagechris.srht.site/linear-cli`.
 
 Optional flags:
 
 ```bash
-nix run .#release -- --version X.Y.Z --publish-pages
 nix run .#release -- --version X.Y.Z --submit-linux-build
 ```
 
-- `--publish-pages` runs `hut pages publish` for `averagechris.srht.site` under `/linear-cli`.
-- `--submit-linux-build` submits `builds/release-linux-x86_64.yml`; the build creates the Linux artifact, merges it with existing hosted downloads, and republishes SourceHut Pages using build-scoped `pages.sr.ht/PAGES:RW` OAuth.
+- `--submit-linux-build` submits `builds/release-linux-x86_64.yml`; the build creates and uploads the Linux release artifact.
 
-The Linux build manifest lives in `builds/` (not `.builds/`), so SourceHut does **not** auto-submit it on every push and pages are no longer republished on each push to `main`. Releases publish pages explicitly via `--publish-pages` and/or `--submit-linux-build`.
+The Linux build manifest lives in `builds/` (not `.builds/`), so SourceHut does **not** auto-submit it on every push. The release app triggers the central Pages publisher instead of publishing pages from this repo.
 
 Use the manual steps below when you need more control or are recovering from a partial release.
 
@@ -71,10 +69,10 @@ jj new -m 'chore: bump version to X.Y.Z'
 Then prepare release metadata:
 
 ```bash
-nix run .#prepare-release -- --version X.Y.Z --revision @
+nix run .#prepare-release -- --version X.Y.Z
 ```
 
-This sets `[package].version`, updates `CHANGELOG.md`, and rewrites the Linux SourceHut build manifest artifact names for the new version.
+This sets `[package].version`, updates the `linear-cli` entry in `Cargo.lock`, updates `CHANGELOG.md`, and rewrites the Linux SourceHut build manifest artifact names for the new version.
 
 Verify:
 
@@ -102,8 +100,8 @@ nix run .#release-tag
 This script:
 1. Reads the version from `Cargo.toml` and normalizes it to `vX.Y.Z`
 2. Validates semver format
-3. Checks that the tag doesn't already exist locally or on origin
-4. In jj repos: runs `jj tag set vX.Y.Z --revision @`
+3. Checks that the tag doesn't already exist on origin
+4. Creates/updates the annotated local tag for the selected revision
 5. Pushes the tag to origin with `git push`
 
 ### `--revision` flag
@@ -131,7 +129,7 @@ jj git push --remote origin --bookmark main
 
 ## 8. Build artifacts and pages
 
-Build the local platform tarball and checksum:
+Build the local platform tarball and checksum. The tarball contains `linear` plus the README, changelog, and license files:
 
 ```bash
 nix build .#release-artifact --out-link result-release-artifact
@@ -148,7 +146,7 @@ hut builds submit builds/release-linux-x86_64.yml \
   --visibility unlisted
 ```
 
-The successful build artifacts are also published by SourceHut as short-lived job artifacts. For durable hosted downloads, the build merges its Linux artifact with the current Pages manifest and runs `hut pages publish` automatically.
+The release flow uploads artifacts to SourceHut tag artifacts and triggers the central Pages publisher; this repo should not publish Pages directly as part of the normal release path.
 
 For a local/manual pages publish, build and publish the SourceHut Pages archive:
 
