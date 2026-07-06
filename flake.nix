@@ -575,6 +575,7 @@
         ci-fmt = fleetAppPackage "ci-fmt";
         ci-clippy = fleetAppPackage "ci-clippy";
         ci-test = fleetAppPackage "ci-test";
+        static-checks = fleetAppPackage "static-checks";
         prepare-release = fleetAppPackage "prepare-release";
         release-tag = fleetAppPackage "release-tag";
         release = fleetAppPackage "release";
@@ -693,6 +694,7 @@
             publish-pages
             release
             release-tag
+            static-checks
           ];
         };
         test-check = pkgs.rustPlatform.buildRustPackage (commonRustArgs
@@ -765,6 +767,7 @@
             release = release;
             release-tag = release-tag;
             scripts = repo-scripts;
+            static-checks = static-checks;
           }
           // lib.optionalAttrs (homebrewArtifact != null) {
             "homebrew-artifact" = homebrewArtifact;
@@ -814,6 +817,7 @@
         };
         apps.release = fleetApps.apps.release;
         apps.release-tag = fleetApps.apps.release-tag;
+        apps.static-checks = fleetApps.apps.static-checks;
 
         checks =
           {
