@@ -564,6 +564,15 @@
           versionMode = "package";
           versionFile = "Cargo.toml";
           lockPackages = ["linear-cli"];
+          ciExtraInputs = lib.optionals pkgs.stdenv.isLinux [
+            (pkgs.writeShellApplication {
+              name = "pkg-config";
+              text = ''
+                export PKG_CONFIG_PATH="${pkgs.openssl.dev}/lib/pkgconfig''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+                exec ${pkgs.pkg-config}/bin/pkg-config "$@"
+              '';
+            })
+          ];
         };
         fleetAppPackage = name:
           pkgs.writeShellApplication {
