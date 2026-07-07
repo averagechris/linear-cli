@@ -140,11 +140,13 @@ cp -p result-release-artifact/* dist/downloads/
 For Linux, submit a SourceHut build after `builds/release-linux-x86_64.yml` has the release version:
 
 ```bash
-hut builds submit builds/release-linux-x86_64.yml \
+srht builds submit builds/release-linux-x86_64.yml \
+  --secrets \
   --note 'linear-cli vX.Y.Z linux release' \
-  --tags 'linear-cli/vX.Y.Z/release' \
-  --visibility unlisted
+  --tag 'linear-cli/vX.Y.Z/release'
 ```
+
+Use `--secrets` for release manifests with `oauth:` grants; sr.ht only provisions those tokens when the submit explicitly enables secrets. `srht` defaults builds to unlisted visibility.
 
 The release flow uploads artifacts to SourceHut tag artifacts and triggers the central Pages publisher; this repo should not publish Pages directly as part of the normal release path.
 
