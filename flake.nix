@@ -557,6 +557,7 @@
           });
         fleetApps = fleet.lib.fleet.presets.rust {
           inherit pkgs self;
+          srhtPackage = fleet.packages.${system}.srht;
           pname = "linear-cli";
           binaries = ["linear"];
           subdir = "linear-cli";
