@@ -5,6 +5,12 @@
 
 
 
+
+## v1.6.2 - 2026-08-05
+
+### Changed
+
+- Maintenance release.
 ## v1.6.1 - 2026-07-03
 
 ### Fixed
