@@ -1079,7 +1079,9 @@ async fn async_main() -> Result<i32> {
     };
 
     output::set_quiet_mode(
-        cli.quiet || matches!(cli.output, OutputFormat::Json | OutputFormat::Ndjson),
+        cli.quiet
+            || matches!(cli.output, OutputFormat::Json | OutputFormat::Ndjson)
+            || matches!(cli.command, Commands::Complete { .. }),
     );
     set_yes_mode(cli.yes);
 
@@ -1914,54 +1916,66 @@ async fn handle_setup(output: &OutputOptions) -> Result<()> {
     let client = api::LinearClient::with_api_key(api_key.clone())?;
 
     let teams_query = r#"
-        query {
-            teams {
+        query($first: Int, $after: String, $last: Int, $before: String) {
+            teams(first: $first, after: $after, last: $last, before: $before) {
                 nodes {
                     id
                     name
                     key
                 }
+                pageInfo { hasNextPage endCursor hasPreviousPage startCursor }
             }
         }
     "#;
 
-    let data = client.query(teams_query, None).await?;
+    let teams = pagination::paginate_nodes(
+        &client,
+        teams_query,
+        serde_json::Map::new(),
+        &["data", "teams", "nodes"],
+        &["data", "teams", "pageInfo"],
+        &pagination::PaginationOptions {
+            all: true,
+            ..Default::default()
+        },
+        100,
+    )
+    .await?;
 
     config::set_api_key(&api_key)?;
     println!("  API key validated and saved.");
 
-    let teams = &data["data"]["teams"]["nodes"];
-    if let Some(teams_arr) = teams.as_array() {
-        if teams_arr.is_empty() {
-            println!("  No teams found. Skipping default team.");
-        } else {
-            println!("  Available teams:");
-            for (i, team) in teams_arr.iter().enumerate() {
-                let key = team["key"].as_str().unwrap_or("?");
-                let name = team["name"].as_str().unwrap_or("?");
-                println!("    {}. {} ({})", i + 1, name, key);
-            }
-            println!();
-            print!("  Select team number (or press Enter to skip): ");
-            io::stdout().flush()?;
+    let teams_arr = &teams;
+    if teams_arr.is_empty() {
+        println!("  No teams found. Skipping default team.");
+    } else {
+        println!("  Available teams:");
+        for (i, team) in teams_arr.iter().enumerate() {
+            let key = team["key"].as_str().unwrap_or("?");
+            let name = team["name"].as_str().unwrap_or("?");
+            println!("    {}. {} ({})", i + 1, name, key);
+        }
+        println!();
+        print!("  Select team number (or press Enter to skip): ");
+        io::stdout().flush()?;
 
-            let mut choice = String::new();
-            io::stdin().read_line(&mut choice)?;
-            let choice = choice.trim();
+        let mut choice = String::new();
+        io::stdin().read_line(&mut choice)?;
+        let choice = choice.trim();
 
-            if !choice.is_empty() {
-                if let Ok(num) = choice.parse::<usize>() {
-                    if num >= 1 && num <= teams_arr.len() {
-                        let team = &teams_arr[num - 1];
-                        let key = team["key"].as_str().unwrap_or("?");
-                        println!("  Default team: {}", key);
-                        println!("  Tip: pass -t {} on team-scoped commands.", key);
-                    } else {
-                        println!("  Invalid selection, skipping.");
-                    }
+        if !choice.is_empty() {
+            if let Ok(num) = choice.parse::<usize>() {
+                if num >= 1 && num <= teams_arr.len() {
+                    let team = &teams_arr[num - 1];
+                    let key = team["key"].as_str().unwrap_or("?");
+                    config::config_set("default-team", key)?;
+                    println!("  Default team: {}", key);
+                    println!("  Tip: pass -t {} on team-scoped commands.", key);
                 } else {
-                    println!("  Invalid input, skipping.");
+                    println!("  Invalid selection, skipping.");
                 }
+            } else {
+                println!("  Invalid input, skipping.");
             }
         }
     }
@@ -2091,7 +2105,6 @@ async fn complete_issues(prefix: &str) -> Result<()> {
                     identifier
                     title
                 }
-            }
         }
     "#;
 

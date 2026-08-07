@@ -10,6 +10,21 @@ use keyring::{Entry, Error as KeyringError};
 
 const SERVICE_NAME: &str = "linear-cli";
 
+fn delete_idempotently(entry: &Entry, secret_kind: &str) -> Result<()> {
+    match entry.delete_credential() {
+        Ok(()) | Err(KeyringError::NoEntry) => Ok(()),
+        Err(delete_error) => match entry.get_password() {
+            Ok(_) => {
+                Err(delete_error).context(format!("Failed to delete {} from keyring", secret_kind))
+            }
+            // Platform backends can return a generic access/platform error when an
+            // entry is already absent. If no secret is readable, deletion has
+            // reached its intended state and remains idempotent.
+            Err(_) => Ok(()),
+        },
+    }
+}
+
 fn entry(service_name: &str, profile: &str) -> Result<Entry> {
     // keyring 4.x's default `v1` mode selects the platform-native store and
     // uses Secret Service on Linux, preserving this fork's keyring-only
@@ -73,11 +88,7 @@ pub fn set_key(profile: &str, api_key: &str) -> Result<()> {
 pub fn delete_key(profile: &str) -> Result<()> {
     let entry = entry(SERVICE_NAME, profile)?;
 
-    match entry.delete_credential() {
-        Ok(()) => Ok(()),
-        Err(KeyringError::NoEntry) => Ok(()), // Already gone, that's fine
-        Err(e) => Err(e).context("Failed to delete API key from keyring"),
-    }
+    delete_idempotently(&entry, "API key")
 }
 
 /// Check if keyring is available on this system.
@@ -131,11 +142,7 @@ pub fn set_oauth_tokens(profile: &str, json: &str) -> Result<()> {
 /// Delete OAuth tokens from keyring for a profile
 pub fn delete_oauth_tokens(profile: &str) -> Result<()> {
     let entry = entry(OAUTH_SERVICE_NAME, profile)?;
-    match entry.delete_credential() {
-        Ok(()) => Ok(()),
-        Err(KeyringError::NoEntry) => Ok(()),
-        Err(e) => Err(e).context("Failed to delete OAuth tokens from keyring"),
-    }
+    delete_idempotently(&entry, "OAuth tokens")
 }
 
 #[cfg(test)]

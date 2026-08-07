@@ -5,7 +5,7 @@ use tabled::Table;
 
 use crate::api::LinearClient;
 use crate::output::{print_json, print_json_owned, OutputOptions};
-use crate::pagination::PaginationOptions;
+use crate::pagination::{paginate_nodes, PaginationOptions};
 use crate::text::truncate;
 use crate::types::Initiative;
 use crate::DISPLAY_OPTIONS;
@@ -99,7 +99,7 @@ pub async fn handle(
 ) -> Result<()> {
     match cmd {
         InitiativeCommands::List => list_initiatives(output, pagination).await,
-        InitiativeCommands::Get { id } => get_initiative(&id, output).await,
+        InitiativeCommands::Get { id } => get_initiative(&id, output, pagination).await,
         InitiativeCommands::Create {
             name,
             description,
@@ -203,7 +203,11 @@ async fn list_initiatives(output: &OutputOptions, pagination: &PaginationOptions
     Ok(())
 }
 
-async fn get_initiative(id: &str, output: &OutputOptions) -> Result<()> {
+async fn get_initiative(
+    id: &str,
+    output: &OutputOptions,
+    pagination: &PaginationOptions,
+) -> Result<()> {
     let client = LinearClient::new()?;
 
     let query = r#"
@@ -218,24 +222,40 @@ async fn get_initiative(id: &str, output: &OutputOptions) -> Result<()> {
                 sortOrder
                 createdAt
                 updatedAt
-                projects {
-                    nodes {
-                        id
-                        name
-                        state
-                        progress
-                    }
-                }
             }
         }
     "#;
 
-    let result = client.query(query, Some(json!({ "id": id }))).await?;
-    let initiative = &result["data"]["initiative"];
+    let mut result = client.query(query, Some(json!({ "id": id }))).await?;
+    let initiative = &mut result["data"]["initiative"];
 
     if initiative.is_null() {
         anyhow::bail!("Initiative not found: {}", id);
     }
+
+    let projects_query = r#"
+        query($id: String!, $first: Int, $after: String, $last: Int, $before: String) {
+            initiative(id: $id) {
+                projects(first: $first, after: $after, last: $last, before: $before) {
+                    nodes { id name state progress }
+                    pageInfo { hasNextPage endCursor hasPreviousPage startCursor }
+                }
+            }
+        }
+    "#;
+    let mut variables = serde_json::Map::new();
+    variables.insert("id".to_string(), json!(id));
+    let projects = paginate_nodes(
+        &client,
+        projects_query,
+        variables,
+        &["data", "initiative", "projects", "nodes"],
+        &["data", "initiative", "projects", "pageInfo"],
+        &pagination.with_default_all(),
+        100,
+    )
+    .await?;
+    initiative["projects"] = json!({ "nodes": projects });
 
     print_json(initiative, output)?;
     Ok(())

@@ -23,6 +23,15 @@ impl PaginationOptions {
         options
     }
 
+    /// Fetch every page when the caller did not specify an explicit bound.
+    pub fn with_default_all(&self) -> Self {
+        let mut options = self.clone();
+        if !options.all && options.limit.is_none() {
+            options.all = true;
+        }
+        options
+    }
+
     pub fn effective_page_size(&self, default_page_size: usize) -> usize {
         self.page_size.unwrap_or(default_page_size).max(1)
     }
@@ -347,5 +356,24 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(opts.effective_page_size(100), 1);
+    }
+
+    #[test]
+    fn test_with_default_all_sets_all_only_when_unbounded() {
+        let result = PaginationOptions::default().with_default_all();
+        assert!(result.all);
+        assert!(result.limit.is_none());
+
+        let bounded = PaginationOptions {
+            limit: Some(10),
+            after: Some("cursor".to_string()),
+            page_size: Some(25),
+            ..Default::default()
+        }
+        .with_default_all();
+        assert!(!bounded.all);
+        assert_eq!(bounded.limit, Some(10));
+        assert_eq!(bounded.after.as_deref(), Some("cursor"));
+        assert_eq!(bounded.page_size, Some(25));
     }
 }
