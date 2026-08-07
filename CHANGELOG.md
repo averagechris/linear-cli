@@ -2,8 +2,12 @@
 
 ## Unreleased
 
+## v1.6.4 - 2026-08-07
 
+### Fixed
 
+- Restore the valid GraphQL operation used by issue dynamic completion.
+- Preserve keyring deletion errors when a follow-up read is inaccessible or the backend fails.
 
 
 

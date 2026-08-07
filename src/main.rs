@@ -1723,6 +1723,22 @@ mod tests {
     }
 
     #[test]
+    fn test_issue_completion_query_has_balanced_graphql_selection_sets() {
+        let opens = super::ISSUE_COMPLETION_QUERY.matches('{').count();
+        let closes = super::ISSUE_COMPLETION_QUERY.matches('}').count();
+
+        assert_eq!(
+            opens, 3,
+            "query contract should contain three selection sets"
+        );
+        assert_eq!(closes, opens, "every GraphQL selection set must be closed");
+        assert!(
+            super::ISSUE_COMPLETION_QUERY.trim_end().ends_with('}'),
+            "the operation-level selection set must be closed"
+        );
+    }
+
+    #[test]
     #[cfg(unix)]
     fn test_resolve_pager_command_rejects_path_bypass() {
         let (program, args) = resolve_pager_command("/tmp/evil/less -R");
@@ -2092,24 +2108,28 @@ async fn complete_projects(cache: Option<&cache::Cache>, prefix: &str) -> Result
 }
 
 /// Complete issue identifiers with titles (no cache -- issues change frequently)
+const ISSUE_COMPLETION_QUERY: &str = r#"
+    query($first: Int) {
+        issues(first: $first, orderBy: updatedAt) {
+            nodes {
+                identifier
+                title
+            }
+        }
+    }
+"#;
+
 async fn complete_issues(prefix: &str) -> Result<()> {
     let client = match api::LinearClient::new() {
         Ok(c) => c,
         Err(_) => return Ok(()),
     };
 
-    let query = r#"
-        query($first: Int) {
-            issues(first: $first, orderBy: updatedAt) {
-                nodes {
-                    identifier
-                    title
-                }
-        }
-    "#;
-
     let result = match client
-        .query(query, Some(serde_json::json!({ "first": 50 })))
+        .query(
+            ISSUE_COMPLETION_QUERY,
+            Some(serde_json::json!({ "first": 50 })),
+        )
         .await
     {
         Ok(r) => r,

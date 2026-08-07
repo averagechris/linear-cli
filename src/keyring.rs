@@ -10,6 +10,10 @@ use keyring::{Entry, Error as KeyringError};
 
 const SERVICE_NAME: &str = "linear-cli";
 
+fn is_missing_entry_error(error: &KeyringError) -> bool {
+    matches!(error, KeyringError::NoEntry)
+}
+
 fn delete_idempotently(entry: &Entry, secret_kind: &str) -> Result<()> {
     match entry.delete_credential() {
         Ok(()) | Err(KeyringError::NoEntry) => Ok(()),
@@ -17,10 +21,11 @@ fn delete_idempotently(entry: &Entry, secret_kind: &str) -> Result<()> {
             Ok(_) => {
                 Err(delete_error).context(format!("Failed to delete {} from keyring", secret_kind))
             }
-            // Platform backends can return a generic access/platform error when an
-            // entry is already absent. If no secret is readable, deletion has
-            // reached its intended state and remains idempotent.
-            Err(_) => Ok(()),
+            Err(read_error) if is_missing_entry_error(&read_error) => Ok(()),
+            Err(read_error) => Err(read_error).context(format!(
+                "Failed to verify deletion of {} from keyring after deletion failed: {}",
+                secret_kind, delete_error
+            )),
         },
     }
 }
@@ -163,6 +168,23 @@ mod tests {
         keyring_test_lock()
             .lock()
             .expect("keyring test lock should not be poisoned")
+    }
+
+    #[test]
+    fn missing_entry_classifier_accepts_only_no_entry() {
+        assert!(is_missing_entry_error(&KeyringError::NoEntry));
+        assert!(!is_missing_entry_error(&KeyringError::PlatformFailure(
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "keyring is locked"
+            ))
+        )));
+        assert!(!is_missing_entry_error(&KeyringError::PlatformFailure(
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::ConnectionRefused,
+                "keyring backend unavailable"
+            ))
+        )));
     }
 
     #[test]
