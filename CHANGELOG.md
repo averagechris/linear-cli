@@ -6,6 +6,15 @@
 
 
 
+
+## v1.6.3 - 2026-08-07
+
+### Fixed
+
+- Fetch every project attached to an initiative detail view, including reverse pagination.
+- Persist setup's default team after fetching all available teams.
+- Keep keyring deletion idempotent across platform-specific missing-entry errors.
+- Silence diagnostic noise from dynamic shell completion.
 ## v1.6.2 - 2026-08-05
 
 ### Changed

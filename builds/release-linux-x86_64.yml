@@ -77,5 +77,5 @@ tasks:
       EOF
       srht builds submit "$manifest" --secrets --note "site refresh: linear-cli $tag"
 artifacts:
-  - artifacts/linear-cli-v1.6.2-x86_64-linux.tar.gz
-  - artifacts/linear-cli-v1.6.2-x86_64-linux.tar.gz.sha256
+  - artifacts/linear-cli-v1.6.3-x86_64-linux.tar.gz
+  - artifacts/linear-cli-v1.6.3-x86_64-linux.tar.gz.sha256
