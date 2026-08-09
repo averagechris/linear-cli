@@ -8,6 +8,29 @@ https://averagechris.srht.site/linear-cli/
 
 Primary installs remain package-manager based (`cargo install`, Nix, or Homebrew), but release tarballs are available for manual installs and checksum verification.
 
+## Release workflow
+
+Tiny-safe preflight (read-only: no file, jj operation, local-ref, or remote-ref changes):
+
+```bash
+nix run .#release -- --version X.Y.Z --check
+```
+
+Then use the one normal release command:
+
+```bash
+nix run .#release -- --version X.Y.Z
+```
+
+Run it from an empty jj working-copy commit whose parent, local `main`, and
+`main@origin` agree. The command prepares release metadata, runs the standard
+gates plus `ci-skills-render` on the prepared tree, builds and verifies the
+normal release artifact and checksum (while preserving the separate Homebrew
+artifact), and only then atomically publishes leased `main` plus the annotated
+tag. If refs were published but upload or refresh failed, rerun the exact same
+command: a fully matching state resumes idempotently; any mismatch fails
+closed. Do not use obsolete skip or pages-publication flags.
+
 ## Build local macOS artifact
 
 On macOS:

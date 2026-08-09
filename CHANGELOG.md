@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Made releases fail safe with read-only preflight, prepared-tree validation, verified artifacts before atomic refs, and idempotent resume.
+
 ## v1.6.4 - 2026-08-07
 
 ### Fixed

@@ -565,6 +565,7 @@
           versionMode = "package";
           versionFile = "Cargo.toml";
           lockPackages = ["linear-cli"];
+          releaseValidationApps = ["ci-skills-render"];
           ciExtraInputs = lib.optionals pkgs.stdenv.isLinux [
             (pkgs.writeShellApplication {
               name = "pkg-config";
@@ -739,6 +740,28 @@
             ci-skills-render
             mkdir -p "$out"
           '';
+        release-contract-check =
+          pkgs.runCommand "${package.name}-release-contract-check" {
+            nativeBuildInputs = [release];
+            src = lib.cleanSource ./.;
+          } ''
+            release --help > help.txt
+            cat > expected-help.txt <<'EOF'
+            usage: release --version X.Y.Z [--check] [--allow-downgrade] [--submit-linux-build]
+
+            --check               verify release readiness without editing files or publishing refs
+            --version X.Y.Z       required release version
+            --allow-downgrade     permit a lower version; the target tag must still be new
+            --submit-linux-build  submit the Linux release build after publication
+            EOF
+            diff -u expected-help.txt help.txt
+            grep -Fq 'nix run .#release -- --version X.Y.Z --check' "$src/docs/downloads.md"
+            grep -Fq 'nix run .#release -- --version X.Y.Z' "$src/docs/downloads.md"
+            grep -Fq 'prepared tree' "$src/docs/downloads.md"
+            grep -Fq 'atomically publishes' "$src/docs/downloads.md"
+            grep -Fq 'empty jj working-copy commit' "$src/docs/downloads.md"
+            mkdir -p "$out"
+          '';
         # `nix fmt` invokes the formatter app without path arguments. Alejandra
         # treats no arguments as "format stdin", which fails on empty stdin, so
         # keep the formatter as Alejandra but default it to formatting the repo.
@@ -834,6 +857,7 @@
             build = linear;
             fmt = fmt-check;
             skills = skills-check;
+            release-contract = release-contract-check;
           }
           // lib.optionalAttrs (homebrewArtifact != null) {
             "homebrew-artifact" = homebrewArtifact;

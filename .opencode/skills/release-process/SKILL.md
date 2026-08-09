@@ -10,25 +10,32 @@ Use this skill when cutting a new release for this hardened fork.
 
 ## Fast path
 
-For the normal deterministic release flow, create/use the jj release change and run:
+From an empty jj working-copy commit whose parent, local `main`, and
+`main@origin` agree, first run the Tiny-safe, read-only preflight:
+
+```bash
+nix run .#release -- --version X.Y.Z --check
+```
+
+Then run the one normal deterministic release command:
 
 ```bash
 nix run .#release -- --version X.Y.Z
 ```
 
-This prepares `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md`, and `builds/release-linux-x86_64.yml`, runs validation, tags/pushes `vX.Y.Z`, builds the local `.#release-artifact`, uploads the artifact to the SourceHut tag, and submits the central Pages refresh build for `averagechris.srht.site/linear-cli`.
+This prepares `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md`, and `builds/release-linux-x86_64.yml`; runs the standard gates and `ci-skills-render` on the prepared tree; builds and verifies the release artifact and checksum before refs; atomically publishes leased `main` plus annotated `vX.Y.Z`; uploads the artifact; and submits the central Pages refresh. The separate Homebrew artifact remains available but is not substituted for the fleet release artifact.
 
-Optional flags:
-
-```bash
-nix run .#release -- --version X.Y.Z --submit-linux-build
-```
+If refs were published but upload or refresh failed, rerun the exact same
+command. A fully matching tag, refs, checkout, and version resumes
+idempotently; any mismatch fails closed. The empty `@` is required for a new
+release. Do not use obsolete skip or pages-publication flags.
 
 - `--submit-linux-build` submits `builds/release-linux-x86_64.yml`; the build creates and uploads the Linux release artifact.
 
 The Linux build manifest lives in `builds/` (not `.builds/`), so SourceHut does **not** auto-submit it on every push. The release app triggers the central Pages publisher instead of publishing pages from this repo.
 
-Use the manual steps below when you need more control or are recovering from a partial release.
+Use the manual steps below only to understand the components; recover from a
+partial normal release by rerunning the exact orchestrator command.
 
 ## 1. Find the last release tag
 
@@ -102,15 +109,7 @@ This script:
 2. Validates semver format
 3. Checks that the tag doesn't already exist on origin
 4. Creates/updates the annotated local tag for the selected revision
-5. Pushes the tag to origin with `git push`
-
-### `--revision` flag
-
-By default the script tags `@`. If you're sitting on a fresh empty child change after the version bump, pass the actual release revision:
-
-```bash
-nix run .#release-tag -- --revision @-
-```
+5. Pushes the tag to origin
 
 ### If the push fails
 
