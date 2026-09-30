@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    fleet.url = "github:averagechris/fleet/e31a02573d79dfeb2496fec6c21cf74a0ece4d79";
+    fleet.url = "github:averagechris/fleet/ab828532afb4cd8fcf2835051d21b4c55b65609d";
   };
 
   outputs = {
@@ -768,7 +768,7 @@
             grep -Fq '[[ "$GITHUB_SHA" == "$commit" ]]' "$workflow"
             grep -Fq '"$GITHUB_REF" == refs/heads/main' "$workflow"
             grep -Fq 'git merge-base --is-ancestor "$commit" "$GITHUB_SHA"' "$workflow"
-            test "$(grep -Fc 'uses: averagechris/fleet/.github/workflows/release.yml@e31a02573d79dfeb2496fec6c21cf74a0ece4d79' "$workflow")" -eq 2
+            test "$(grep -Fc 'uses: averagechris/fleet/.github/workflows/release.yml@ab828532afb4cd8fcf2835051d21b4c55b65609d' "$workflow")" -eq 2
             test "$(grep -Fc 'tag: ''${{ needs.validate.outputs.tag }}' "$workflow")" -eq 2
             test "$(grep -Fc 'platforms:' "$workflow")" -eq 2
             ! grep -Eq 'pull_request|secrets:|publish_release|pages|release create|release upload' "$workflow"
