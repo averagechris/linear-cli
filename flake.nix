@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    fleet.url = "git+https://git.sr.ht/~averagechris/averagechris.srht.site";
+    fleet.url = "github:averagechris/fleet/e31a02573d79dfeb2496fec6c21cf74a0ece4d79";
   };
 
   outputs = {
@@ -557,11 +557,11 @@
           });
         fleetApps = fleet.lib.fleet.presets.rust {
           inherit pkgs self;
-          srhtPackage = fleet.packages.${system}.srht;
           pname = "linear-cli";
           binaries = ["linear"];
           subdir = "linear-cli";
           srhtRepo = "linear-cli";
+          releaseBackend = "github";
           versionMode = "package";
           versionFile = "Cargo.toml";
           lockPackages = ["linear-cli"];
@@ -747,19 +747,31 @@
           } ''
             release --help > help.txt
             cat > expected-help.txt <<'EOF'
-            usage: release --version X.Y.Z [--check] [--allow-downgrade] [--submit-linux-build]
-
-            --check               verify release readiness without editing files or publishing refs
-            --version X.Y.Z       required release version
-            --allow-downgrade     permit a lower version; the target tag must still be new
-            --submit-linux-build  submit the Linux release build after publication
+            usage: release --version X.Y.Z [--check] [--allow-downgrade]
+              --check  nonmutating ref/version preflight only; does not run validation or build artifacts
             EOF
             diff -u expected-help.txt help.txt
-            grep -Fq 'nix run .#release -- --version X.Y.Z --check' "$src/docs/downloads.md"
-            grep -Fq 'nix run .#release -- --version X.Y.Z' "$src/docs/downloads.md"
-            grep -Fq 'prepared tree' "$src/docs/downloads.md"
-            grep -Fq 'atomically publishes' "$src/docs/downloads.md"
-            grep -Fq 'empty jj working-copy commit' "$src/docs/downloads.md"
+            grep -Fq 'nix run .#release -- --version X.Y.Z --check' "$src/docs/release.md"
+            grep -Fq 'nix run .#release -- --version X.Y.Z' "$src/docs/release.md"
+            grep -Fq 'atomically pushes' "$src/docs/release.md"
+            grep -Fq 'empty jj working-copy commit' "$src/docs/release.md"
+            grep -Fq 'gh release create vX.Y.Z' "$src/docs/release.md"
+            grep -Fq 'project=linear-cli' "$src/docs/release.md"
+            workflow="$src/.github/workflows/release.yml"
+            grep -Fq 'permissions: {}' "$workflow"
+            grep -Fq '[[ "$GITHUB_REPOSITORY" == "averagechris/linear-cli" ]]' "$workflow"
+            grep -Fq '^v[0-9]+\.[0-9]+\.[0-9]+$' "$workflow"
+            grep -Fq 'git fetch --force --no-tags origin "refs/tags/$REQUESTED_TAG:refs/tags/$REQUESTED_TAG"' "$workflow"
+            grep -Fq 'git cat-file -t "$REQUESTED_TAG"' "$workflow"
+            grep -Fq 'git rev-parse "$REQUESTED_TAG^{tag}"' "$workflow"
+            grep -Fq 'git rev-parse "$REQUESTED_TAG^{commit}"' "$workflow"
+            grep -Fq '[[ "$GITHUB_SHA" == "$commit" ]]' "$workflow"
+            grep -Fq '"$GITHUB_REF" == refs/heads/main' "$workflow"
+            grep -Fq 'git merge-base --is-ancestor "$commit" "$GITHUB_SHA"' "$workflow"
+            test "$(grep -Fc 'uses: averagechris/fleet/.github/workflows/release.yml@e31a02573d79dfeb2496fec6c21cf74a0ece4d79' "$workflow")" -eq 2
+            test "$(grep -Fc 'tag: ''${{ needs.validate.outputs.tag }}' "$workflow")" -eq 2
+            test "$(grep -Fc 'platforms:' "$workflow")" -eq 2
+            ! grep -Eq 'pull_request|secrets:|publish_release|pages|release create|release upload' "$workflow"
             mkdir -p "$out"
           '';
         # `nix fmt` invokes the formatter app without path arguments. Alejandra

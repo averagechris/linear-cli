@@ -14,3 +14,4 @@ tmpclaude-*
 .envrc
 
 __pycache__/
+/.opencode/node_modules/

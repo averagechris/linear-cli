@@ -290,7 +290,7 @@ enum Commands {
     Common,
     /// Show agent-focused capabilities and examples
     Agent,
-    /// Check SourceHut release tags for a newer version of linear
+    /// Check GitHub release tags for a newer version of linear
     #[command(after_help = r#"EXAMPLES:
     linear update
     linear update --check"#)]

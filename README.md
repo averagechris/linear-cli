@@ -11,7 +11,9 @@ Credentials are stored in the OS keyring only.
 
 ## Install
 
-Hosted release downloads, checksums, and release notes: <https://averagechris.srht.site/linear-cli/>.
+Future release downloads, checksums, and notes: [GitHub Releases](https://github.com/averagechris/linear-cli/releases).
+
+Project documentation: [GitHub Pages](https://averagechris.github.io/linear-cli/). Historical releases remain available from the [former SourceHut Pages site](https://averagechris.srht.site/linear-cli/).
 
 ```bash
 # Homebrew tap package (replace with your tap)
@@ -36,7 +38,7 @@ cargo build --release
 
 ## Update
 
-`linear update` checks canonical SourceHut `vX.Y.Z` release tags and reports whether a newer release exists. It does not self-update.
+`linear update` checks canonical GitHub `vX.Y.Z` tags and reports whether a newer release exists. It does not self-update.
 
 ```bash
 linear update --check
@@ -45,7 +47,7 @@ cargo install --locked linear-cli
 nix flake update
 ```
 
-Release/build details live in [docs/downloads.md](docs/downloads.md) and [docs/homebrew.md](docs/homebrew.md).
+The manual GitHub publication procedure lives in [docs/release.md](docs/release.md). Artifact details live in [docs/downloads.md](docs/downloads.md) and [docs/homebrew.md](docs/homebrew.md).
 
 ## Quick start
 
