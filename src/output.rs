@@ -85,6 +85,13 @@ impl OutputOptions {
     }
 }
 
+pub fn reject_unsupported_dry_run(dry_run: bool, command: &str) -> Result<()> {
+    if dry_run {
+        anyhow::bail!("--dry-run is not supported for `{command}`; no changes were made");
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 pub enum FilterOp {
     Eq,

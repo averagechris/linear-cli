@@ -334,6 +334,37 @@ fn test_dry_run_flag_exists() {
 }
 
 #[test]
+fn test_unsupported_dry_run_fails_closed_before_auth() {
+    let cases: [&[&str]; 2] = [
+        &[
+            "relations",
+            "add",
+            "LIN-1",
+            "-r",
+            "blocks",
+            "LIN-2",
+            "--dry-run",
+        ],
+        &["api", "query", "mutation { noop }", "--dry-run"],
+    ];
+
+    for args in cases {
+        let (code, stdout, stderr) = run_cli(args);
+        assert_ne!(code, 0, "unsupported dry-run must fail: {args:?}");
+        let combined = format!("{stdout}\n{stderr}");
+        assert!(
+            combined.contains("--dry-run is not supported"),
+            "{combined:?}"
+        );
+        assert!(combined.contains("no changes were made"), "{combined:?}");
+        assert!(
+            !combined.contains("No API key configured"),
+            "dry-run rejection should happen before auth: args={args:?}, output={combined:?}"
+        );
+    }
+}
+
+#[test]
 fn test_compact_flag_exists() {
     let (code, stdout, _stderr) = run_cli(&["--help"]);
     assert_eq!(code, 0);

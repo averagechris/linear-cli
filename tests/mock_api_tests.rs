@@ -14,6 +14,12 @@
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::process::Command;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 const TEST_API_KEY: &str = "lin_api_mock_key_for_tests_only";
 
@@ -59,8 +65,14 @@ fn load_rules() -> Vec<MockRule> {
 /// Start a minimal HTTP server serving fixture responses on a random port.
 /// The accept-loop thread is detached; it dies with the test process.
 fn start_mock_server() -> String {
+    start_counting_mock_server().0
+}
+
+fn start_counting_mock_server() -> (String, Arc<AtomicUsize>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind mock server");
     let addr = listener.local_addr().expect("mock server addr");
+    let mutation_requests = Arc::new(AtomicUsize::new(0));
+    let server_mutations = Arc::clone(&mutation_requests);
     std::thread::spawn(move || {
         let rules = load_rules();
         for stream in listener.incoming() {
@@ -68,6 +80,9 @@ fn start_mock_server() -> String {
             let Some(body) = read_http_request(&mut stream) else {
                 continue;
             };
+            if body.contains("mutation") {
+                server_mutations.fetch_add(1, Ordering::Relaxed);
+            }
             let response_body = rules
                 .iter()
                 .find(|rule| rule.matches.iter().all(|m| body.contains(m.as_str())))
@@ -86,7 +101,55 @@ fn start_mock_server() -> String {
             let _ = stream.write_all(response.as_bytes());
         }
     });
-    format!("http://{}", addr)
+    (format!("http://{addr}"), mutation_requests)
+}
+
+fn start_pagination_server(page_info: &str) -> (String, JoinHandle<usize>) {
+    let page_info: serde_json::Value = serde_json::from_str(page_info).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind pagination mock server");
+    listener.set_nonblocking(true).unwrap();
+    let addr = listener.local_addr().expect("pagination mock server addr");
+    let task = std::thread::spawn(move || {
+        let mut requests = 0;
+        let mut last_request = Instant::now();
+        loop {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    if read_http_request(&mut stream).is_none() {
+                        continue;
+                    }
+                    requests += 1;
+                    last_request = Instant::now();
+                    let response_body = serde_json::json!({
+                        "data": {
+                            "issues": {
+                                "nodes": [{"identifier": "LIN-1", "title": "Cursor test"}],
+                                "pageInfo": page_info.clone(),
+                            }
+                        }
+                    })
+                    .to_string();
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        response_body.len(), response_body
+                    );
+                    let _ = stream.write_all(response.as_bytes());
+                    if requests == 3 {
+                        break;
+                    }
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if requests > 0 && last_request.elapsed() >= Duration::from_millis(500) {
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                Err(_) => break,
+            }
+        }
+        requests
+    });
+    (format!("http://{addr}"), task)
 }
 
 /// Read one HTTP request and return its body.
@@ -246,6 +309,100 @@ fn issue_create_dry_run_previews_without_creating() {
     assert!(
         !stdout.contains("FAKE-123"),
         "dry-run must not reach the create mutation"
+    );
+}
+
+#[test]
+fn global_dry_run_previews_json_import_without_creating() {
+    let (server, mutation_requests) = start_counting_mock_server();
+    let home = tempfile::tempdir().unwrap();
+    let input = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(input.path(), r#"[{"title":"Imported preview"}]"#).unwrap();
+
+    let (code, _stdout, stderr) = run_cli_mocked(
+        &server,
+        home.path(),
+        &[
+            "--dry-run",
+            "import",
+            "json",
+            input.path().to_str().unwrap(),
+            "--team",
+            "FAKE",
+        ],
+    );
+
+    assert_eq!(code, 0, "global dry-run import should preview: {stderr}");
+    assert!(stderr.contains("[DRY RUN] Preview"), "{stderr}");
+    assert!(!stderr.contains("No API key configured"), "{stderr}");
+    assert_eq!(mutation_requests.load(Ordering::Relaxed), 0);
+}
+
+fn assert_pagination_error_is_bounded(
+    args: &[&str],
+    page_info: &str,
+    expected_requests: usize,
+    message: &str,
+) {
+    let (server, task) = start_pagination_server(page_info);
+    let home = tempfile::tempdir().unwrap();
+    let (code, stdout, stderr) = run_cli_mocked(&server, home.path(), args);
+    let requests = task.join().expect("pagination mock server thread");
+    let combined = format!("{stdout}\n{stderr}");
+
+    assert_ne!(
+        code, 0,
+        "stalled pagination should report an error: {combined}"
+    );
+    assert!(
+        combined.contains(message),
+        "expected {message:?}: {combined}"
+    );
+    assert_eq!(
+        requests, expected_requests,
+        "pagination request count: {combined}"
+    );
+}
+
+#[test]
+fn accumulated_pagination_rejects_a_repeated_forward_cursor() {
+    assert_pagination_error_is_bounded(
+        &["issues", "list", "--all", "--output", "json"],
+        r#"{"hasNextPage":true,"endCursor":"cursor-1"}"#,
+        2,
+        "repeated the current forward cursor",
+    );
+}
+
+#[test]
+fn streaming_pagination_rejects_a_repeated_forward_cursor() {
+    assert_pagination_error_is_bounded(
+        &["issues", "list", "--all", "--output", "ndjson"],
+        r#"{"hasNextPage":true,"endCursor":"cursor-1"}"#,
+        2,
+        "repeated the current forward cursor",
+    );
+}
+
+#[test]
+fn accumulated_pagination_rejects_a_repeated_backward_cursor() {
+    assert_pagination_error_is_bounded(
+        &[
+            "issues", "list", "--all", "--before", "cursor-0", "--output", "json",
+        ],
+        r#"{"hasPreviousPage":true,"startCursor":"cursor-1"}"#,
+        2,
+        "repeated the current backward cursor",
+    );
+}
+
+#[test]
+fn accumulated_pagination_errors_when_the_next_cursor_is_missing() {
+    assert_pagination_error_is_bounded(
+        &["issues", "list", "--all", "--output", "json"],
+        r#"{"hasNextPage":true}"#,
+        1,
+        "without a cursor",
     );
 }
 

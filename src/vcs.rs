@@ -85,6 +85,8 @@ pub fn git_branch_exists(branch: &str) -> bool {
 }
 
 pub fn generate_branch_name(identifier: &str, title: &str) -> String {
+    const MAX_SLUG_CHARS: usize = 50;
+
     // Convert title to kebab-case for branch name
     let slug: String = title
         .to_lowercase()
@@ -96,12 +98,13 @@ pub fn generate_branch_name(identifier: &str, title: &str) -> String {
         .collect::<Vec<_>>()
         .join("-");
 
-    // Truncate if too long
-    let slug = if slug.len() > 50 {
-        slug[..50].trim_end_matches('-').to_string()
-    } else {
-        slug
-    };
+    let slug: String = slug
+        .chars()
+        .take(MAX_SLUG_CHARS)
+        .collect::<String>()
+        .trim_end_matches('-')
+        .to_string();
+    let slug = if slug.is_empty() { "update" } else { &slug };
 
     format!("{}/{}", identifier.to_lowercase(), slug)
 }
@@ -109,6 +112,24 @@ pub fn generate_branch_name(identifier: &str, title: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn long_branch_slugs_truncate_on_character_boundaries() {
+        let branch = generate_branch_name("LIN-1", &"界".repeat(60));
+        assert_eq!(branch, format!("lin-1/{}", "界".repeat(50)));
+    }
+
+    #[test]
+    fn punctuation_only_titles_use_a_nonempty_slug() {
+        let branch = generate_branch_name("LIN-2", "!!! --- ???");
+        assert_eq!(branch, "lin-2/update");
+    }
+
+    #[test]
+    fn truncation_does_not_leave_a_trailing_separator() {
+        let branch = generate_branch_name("LIN-3", &format!("{} b", "a".repeat(49)));
+        assert_eq!(branch, format!("lin-3/{}", "a".repeat(49)));
+    }
 
     // --- extract_issue_from_branch ---
 
