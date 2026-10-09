@@ -37,6 +37,40 @@ impl PaginationOptions {
     }
 }
 
+fn next_cursor(
+    page_info: &Map<String, Value>,
+    forward: bool,
+    current: Option<&str>,
+) -> Result<Option<String>> {
+    let (has_more_key, cursor_key, direction) = if forward {
+        ("hasNextPage", "endCursor", "forward")
+    } else {
+        ("hasPreviousPage", "startCursor", "backward")
+    };
+    if !page_info
+        .get(has_more_key)
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return Ok(None);
+    }
+
+    let cursor = page_info
+        .get(cursor_key)
+        .and_then(Value::as_str)
+        .filter(|cursor| !cursor.is_empty())
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "pagination response reported another {direction} page without a cursor"
+            )
+        })?;
+    if current == Some(cursor) {
+        anyhow::bail!("pagination response repeated the current {direction} cursor");
+    }
+
+    Ok(Some(cursor.to_string()))
+}
+
 pub async fn paginate_nodes(
     client: &LinearClient,
     query: &str,
@@ -111,36 +145,19 @@ pub async fn paginate_nodes(
         let page_info = get_path(&result, page_info_path).and_then(|v| v.as_object());
         let Some(page_info) = page_info else { break };
 
-        if forward {
-            let has_next = page_info
-                .get("hasNextPage")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            if !has_next {
-                break;
-            }
-            after = page_info
-                .get("endCursor")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
-            if after.is_none() {
-                break;
-            }
+        let current = if forward {
+            after.as_deref()
         } else {
-            let has_prev = page_info
-                .get("hasPreviousPage")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            if !has_prev {
-                break;
-            }
-            before = page_info
-                .get("startCursor")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
-            if before.is_none() {
-                break;
-            }
+            before.as_deref()
+        };
+        let next = next_cursor(page_info, forward, current)?;
+        if next.is_none() {
+            break;
+        }
+        if forward {
+            after = next;
+        } else {
+            before = next;
         }
     }
 
@@ -273,21 +290,11 @@ where
         let page_info = get_path(&result, page_info_path).and_then(|v| v.as_object());
         let Some(page_info) = page_info else { break };
 
-        let has_next = page_info
-            .get("hasNextPage")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        if !has_next {
+        let next = next_cursor(page_info, true, after.as_deref())?;
+        if next.is_none() {
             break;
         }
-
-        after = page_info
-            .get("endCursor")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        if after.is_none() {
-            break;
-        }
+        after = next;
     }
 
     Ok(total)

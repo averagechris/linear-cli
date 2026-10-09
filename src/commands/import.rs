@@ -43,12 +43,12 @@ pub async fn handle(cmd: ImportCommands, output: &OutputOptions) -> Result<()> {
             file,
             team,
             dry_run,
-        } => import_csv(&file, &team, dry_run, output).await,
+        } => import_csv(&file, &team, dry_run || output.dry_run, output).await,
         ImportCommands::Json {
             file,
             team,
             dry_run,
-        } => import_json(&file, &team, dry_run, output).await,
+        } => import_json(&file, &team, dry_run || output.dry_run, output).await,
     }
 }
 

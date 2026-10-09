@@ -23,6 +23,7 @@ mod cache;
 mod commands;
 mod config;
 mod dates;
+mod dry_run;
 mod error;
 mod hygiene;
 mod input;
@@ -1024,6 +1025,7 @@ fn main() -> Result<()> {
 
 async fn async_main() -> Result<i32> {
     let cli = Cli::parse();
+    api::set_dry_run(cli.dry_run);
     if cli.no_color || cli.color_mode == ColorChoice::Never {
         colored::control::set_override(false);
     } else if cli.color_mode == ColorChoice::Always {
@@ -1178,6 +1180,10 @@ async fn run_command(
     retry: u32,
     schema_flag: bool,
 ) -> Result<()> {
+    if let Some(command_name) = dry_run::unsupported_command(&command) {
+        output::reject_unsupported_dry_run(output.dry_run, command_name)?;
+    }
+
     match command {
         Commands::Common => {
             println!("Common tasks:");
